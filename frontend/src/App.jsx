@@ -93,10 +93,10 @@ const Stardust = () => {
             <div 
               className="star" 
               style={{
-                width: `${Math.random() * (isColored ? 4 : 2) + 1}px`,
-                height: `${Math.random() * (isColored ? 4 : 2) + 1}px`,
+                width: `${Math.random() * (isColored ? 5 : 3) + 2}px`,
+                height: `${Math.random() * (isColored ? 5 : 3) + 2}px`,
                 background: color,
-                boxShadow: isColored ? `0 0 12px ${color}` : '0 0 8px rgba(255, 255, 255, 0.5)',
+                boxShadow: isColored ? `0 0 15px ${color}` : '0 0 10px rgba(255, 255, 255, 0.6)',
                 '--duration': `${Math.random() * 15 + 10}s`,
                 animationDelay: `${Math.random() * 20}s`
               }}

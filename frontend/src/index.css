@@ -139,8 +139,8 @@ button {
   position: absolute;
   background: white;
   border-radius: 50%;
-  opacity: 0.6;
-  box-shadow: 0 0 8px 1px rgba(255, 255, 255, 0.3);
+  opacity: 0.8;
+  box-shadow: 0 0 10px 2px rgba(255, 255, 255, 0.5);
   animation: floatUp var(--duration) linear infinite;
 }
 
