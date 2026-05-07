@@ -19,7 +19,7 @@
   --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
   --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
   
-  --font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
 }
 
 * {
@@ -115,39 +115,48 @@ button {
   padding: 0 2rem;
 }
 
-/* Animated Light Beam */
-.light-beam {
+/* Stardust Effect */
+.stardust {
   position: absolute;
   top: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 2px;
-  height: 100vh;
-  background: linear-gradient(to bottom, transparent, rgba(99, 102, 241, 0.5), transparent);
-  box-shadow: 0 0 40px 10px rgba(99, 102, 241, 0.2);
-  z-index: 0;
-  animation: beamMove 8s infinite ease-in-out;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+  pointer-events: none;
 }
 
-.light-glow {
+.star-wrapper {
   position: absolute;
-  top: 20%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 400px;
-  height: 400px;
-  background: radial-gradient(circle, rgba(99, 102, 241, 0.15) 0%, transparent 70%);
-  filter: blur(40px);
-  z-index: 0;
-  animation: pulseGlow 12s infinite alternate;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  transform: translate(calc(var(--mouse-x) * var(--parallax) * 1px), calc(var(--mouse-y) * var(--parallax) * 1px));
+  transition: transform 0.1s ease-out;
 }
 
-@keyframes beamMove {
-  0%, 100% { opacity: 0.3; height: 80vh; transform: translateX(-50%) scaleX(1); }
-  50% { opacity: 0.7; height: 100vh; transform: translateX(-50%) scaleX(1.5); }
+.star {
+  position: absolute;
+  background: white;
+  border-radius: 50%;
+  opacity: 0.6;
+  box-shadow: 0 0 8px 1px rgba(255, 255, 255, 0.3);
+  animation: floatUp var(--duration) linear infinite;
 }
 
-@keyframes pulseGlow {
-  0% { transform: translate(-50%, -50%) scale(1); opacity: 0.3; }
-  100% { transform: translate(-50%, -50%) scale(1.2); opacity: 0.6; }
+@keyframes floatUp {
+  0% { 
+    transform: translateY(110vh) translateX(0) scale(1); 
+    opacity: 0; 
+  }
+  10% { 
+    opacity: 0.7; 
+  }
+  90% { 
+    opacity: 0.7; 
+  }
+  100% { 
+    transform: translateY(-10vh) translateX(40px) scale(0.5); 
+    opacity: 0; 
+  }
 }

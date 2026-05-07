@@ -96,9 +96,10 @@
 .hero-subtitle {
   font-size: 1.5rem;
   color: var(--text-secondary);
-  margin-bottom: 3rem;
+  margin: 0 auto 3rem;
   max-width: 650px;
   line-height: 1.5;
+  text-align: center;
 }
 
 .hero-actions {
@@ -110,7 +111,7 @@
 .btn-primary {
   padding: 1rem 2rem;
   font-size: 1.1rem;
-  border-radius: 12px;
+  border-radius: 100px;
   box-shadow: 0 0 30px rgba(99, 102, 241, 0.3);
 }
 
@@ -120,7 +121,7 @@
   backdrop-filter: blur(8px);
   color: var(--text-primary);
   padding: 1rem 2rem;
-  border-radius: 12px;
+  border-radius: 100px;
   font-weight: 600;
   font-size: 1.1rem;
   transition: all 0.2s;
@@ -190,6 +191,12 @@
   justify-content: center;
   align-items: center;
   margin-bottom: 1.5rem;
+}
+
+.feature-icon-img {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
 }
 
 .feature-icon {

@@ -6,6 +6,11 @@ import Dashboard from './components/Dashboard';
 import Auth from './components/Auth';
 import './App.css';
 
+// Custom Icons
+import demographicsIcon from './assets/demographics.png';
+import metricsIcon from './assets/metrics.png';
+import localizedIcon from './assets/localized.png';
+
 const Navbar = ({ currentView, setView, session }) => (
   <nav className="navbar glass">
     <div className="container nav-content">
@@ -39,25 +44,88 @@ const Navbar = ({ currentView, setView, session }) => (
   </nav>
 );
 
-const FeatureCard = ({ icon: Icon, title, description, delay }) => (
-  <motion.div 
-    className="feature-card glass"
-    initial={{ opacity: 0, y: 20 }}
-    whileInView={{ opacity: 1, y: 0 }}
-    transition={{ duration: 0.5, delay }}
-    viewport={{ once: true }}
-  >
-    <div className="feature-icon-wrapper">
-      <Icon className="feature-icon" />
+const FeatureCard = ({ icon, title, description, delay }) => {
+  const Icon = icon;
+  const isImageIcon = typeof icon === 'string';
+
+  return (
+    <motion.div 
+      className="feature-card glass"
+      initial={{ opacity: 0, y: 20 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, delay }}
+      viewport={{ once: true }}
+    >
+      <div className="feature-icon-wrapper">
+        {isImageIcon ? (
+          <img src={icon} alt={title} className="feature-icon-img" />
+        ) : (
+          <Icon className="feature-icon" />
+        )}
+      </div>
+      <h3>{title}</h3>
+      <p>{description}</p>
+    </motion.div>
+  );
+};
+
+const Stardust = () => {
+  const stars = Array.from({ length: 150 });
+  const colors = ['#6366f1', '#8b5cf6', '#ec4899', '#38bdf8', '#fbbf24'];
+  
+  return (
+    <div className="stardust">
+      {stars.map((_, i) => {
+        const isColored = Math.random() < 0.4;
+        const color = isColored ? colors[Math.floor(Math.random() * colors.length)] : 'white';
+        const parallaxFactor = Math.random() * 30 + 10;
+        
+        return (
+          <div 
+            key={i} 
+            className="star-wrapper" 
+            style={{
+              left: `${Math.random() * 100}%`,
+              top: '0',
+              '--parallax': parallaxFactor
+            }}
+          >
+            <div 
+              className="star" 
+              style={{
+                width: `${Math.random() * (isColored ? 4 : 2) + 1}px`,
+                height: `${Math.random() * (isColored ? 4 : 2) + 1}px`,
+                background: color,
+                boxShadow: isColored ? `0 0 12px ${color}` : '0 0 8px rgba(255, 255, 255, 0.5)',
+                '--duration': `${Math.random() * 15 + 10}s`,
+                animationDelay: `${Math.random() * 20}s`
+              }}
+            />
+          </div>
+        );
+      })}
     </div>
-    <h3>{title}</h3>
-    <p>{description}</p>
-  </motion.div>
-);
+  );
+};
 
 function App() {
   const [view, setView] = useState('home');
   const [session, setSession] = useState(null);
+  
+  // Mouse tracking for "antigravity" effect
+  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      const x = (e.clientX / window.innerWidth - 0.5) * 2;
+      const y = (e.clientY / window.innerHeight - 0.5) * 2;
+      setMousePos({ x, y });
+      document.documentElement.style.setProperty('--mouse-x', x);
+      document.documentElement.style.setProperty('--mouse-y', y);
+    };
+    window.addEventListener('mousemove', handleMouseMove);
+    return () => window.removeEventListener('mousemove', handleMouseMove);
+  }, []);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -97,8 +165,7 @@ function App() {
             {/* Hero Section */}
             <section className="hero">
               <div className="hero-visual-bg">
-                <div className="light-beam"></div>
-                <div className="light-glow"></div>
+                <Stardust />
               </div>
               
               <div className="container hero-content">
@@ -136,19 +203,19 @@ function App() {
                 
                 <div className="features-grid">
                   <FeatureCard 
-                    icon={BarChart3}
+                    icon={metricsIcon}
                     title="Fairness Metrics"
                     description="Comprehensive analysis using Disparate Impact, Equal Opportunity, and Statistical Parity metrics."
                     delay={0.1}
                   />
                   <FeatureCard 
-                    icon={Users}
+                    icon={demographicsIcon}
                     title="Demographic Analysis"
                     description="Identify bias across gender, age, location, and socio-economic groups relevant to Nigeria."
                     delay={0.2}
                   />
                   <FeatureCard 
-                    icon={Globe}
+                    icon={localizedIcon}
                     title="Localized Context"
                     description="Tailored models that understand regional data nuances and regulatory requirements (CBN/NDPR)."
                     delay={0.3}
