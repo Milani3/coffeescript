@@ -1,0 +1,249 @@
+.dashboard-container {
+  padding: 100px 2rem 2rem;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+
+.mode-tag {
+  padding: 0.5rem 1rem;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.mode-tag.success {
+  background: rgba(16, 185, 129, 0.1);
+  color: var(--accent-secondary);
+}
+
+.mode-tag.warning {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+}
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 0.8fr;
+  gap: 1.5rem;
+}
+
+.card {
+  padding: 2rem;
+  border-radius: 24px;
+  display: flex;
+  flex-direction: column;
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.card-header h3 {
+  font-size: 1.25rem;
+}
+
+.card-hint {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  margin-bottom: 1.5rem;
+}
+
+/* Form Styling */
+.form-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  margin-bottom: 2rem;
+}
+
+.input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.input-group label {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.input-group input, .input-group select {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--glass-border);
+  color: white;
+  padding: 0.75rem;
+  border-radius: 8px;
+  outline: none;
+}
+
+.input-group.checkbox {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.value-display {
+  font-size: 0.8rem;
+  color: var(--accent-primary);
+  text-align: right;
+}
+
+/* Result Section */
+.status-badge {
+  padding: 1rem;
+  border-radius: 12px;
+  text-align: center;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  margin-bottom: 2rem;
+}
+
+.status-badge.approved {
+  background: rgba(16, 185, 129, 0.2);
+  color: var(--accent-secondary);
+  border: 1px solid var(--accent-secondary);
+}
+
+.status-badge.denied {
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+  border: 1px solid #ef4444;
+}
+
+.score-meter {
+  margin-bottom: 2rem;
+}
+
+.meter-label {
+  font-size: 0.9rem;
+  margin-bottom: 0.5rem;
+  color: var(--text-secondary);
+}
+
+.meter-bar {
+  height: 8px;
+  background: var(--bg-tertiary);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.meter-fill {
+  height: 100%;
+  background: var(--accent-gradient);
+  transition: width 0.6s cubic-bezier(0.17, 0.67, 0.83, 0.67);
+}
+
+.explainability-panel h4 {
+  margin-bottom: 1rem;
+  font-size: 1.1rem;
+}
+
+.factor-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.factor-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.75rem;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 8px;
+  font-size: 0.95rem;
+}
+
+.side-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.metrics-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.metric-bar-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.metric-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.mini-bar {
+  height: 6px;
+  background: var(--bg-tertiary);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.mini-fill {
+  height: 100%;
+  transition: width 0.6s ease;
+}
+
+.pos { color: var(--accent-secondary); }
+.neg { color: #ef4444; }
+
+/* Bias Toggles */
+.toggle-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.toggle-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 12px;
+}
+
+.toggle-item button {
+  font-size: 1.5rem;
+  color: var(--text-muted);
+  transition: color 0.2s;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-muted);
+  gap: 1rem;
+  text-align: center;
+}
+
+.w-full { width: 100%; }
+
+@media (max-width: 1200px) {
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+}
