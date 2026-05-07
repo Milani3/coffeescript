@@ -10,26 +10,29 @@ const Navbar = ({ currentView, setView, session }) => (
   <nav className="navbar glass">
     <div className="container nav-content">
       <div className="logo" onClick={() => setView('home')} style={{ cursor: 'pointer' }}>
-        <Shield className="logo-icon" />
-        <span>LEBA</span>
+        <Shield className="logo-icon" size={24} />
+        <span style={{ letterSpacing: '2px', fontSize: '1.2rem' }}>LEBA</span>
       </div>
       <div className="nav-links">
         <button onClick={() => setView('home')} className={currentView === 'home' ? 'active' : ''}>
-          <Home size={18} /> Home
+          Features
         </button>
         <button onClick={() => setView('dashboard')} className={currentView === 'dashboard' ? 'active' : ''}>
-          <LayoutDashboard size={18} /> Dashboard
+          Dashboard
         </button>
         {session ? (
           <button className="btn-secondary logout-btn" onClick={() => supabase.auth.signOut()}>
             <LogOut size={18} /> Sign Out
           </button>
         ) : (
-          currentView === 'home' && (
-            <button className="btn-primary" onClick={() => setView('auth')}>
+          <div style={{ display: 'flex', gap: '1rem' }}>
+             <button onClick={() => setView('auth')} className="btn-secondary" style={{ padding: '0.5rem 1rem', fontSize: '0.9rem' }}>
+              Sign In
+            </button>
+            <button className="btn-primary" onClick={() => setView('auth')} style={{ padding: '0.5rem 1rem', fontSize: '0.9rem' }}>
               Get Started
             </button>
-          )
+          </div>
         )}
       </div>
     </div>
@@ -93,40 +96,32 @@ function App() {
           >
             {/* Hero Section */}
             <section className="hero">
+              <div className="hero-visual-bg">
+                <div className="light-beam"></div>
+                <div className="light-glow"></div>
+              </div>
+              
               <div className="container hero-content">
                 <motion.div 
-                  initial={{ opacity: 0, x: -30 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.8 }}
+                  initial={{ opacity: 0, y: 30 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.8, ease: "easeOut" }}
                 >
                   <h1 className="hero-title">
                     Auditing <span className="gradient-text">Bias</span> in Nigerian <br /> 
-                    Loan Eligibility Algorithms
+                    Loan Algorithms
                   </h1>
                   <p className="hero-subtitle">
                     Ensure fairness, transparency, and regulatory compliance for financial institutions with LEBA's state-of-the-art bias detection engine.
                   </p>
                   <div className="hero-actions">
                     <button className="btn-primary" onClick={handleDashboardAccess}>
-                      Start Audit <ArrowRight size={20} />
+                      Get Started Free <ArrowRight size={20} />
                     </button>
                     <button className="btn-secondary">
-                      View Demo
+                      View Audit Demo
                     </button>
                   </div>
-                </motion.div>
-                
-                <motion.div 
-                  className="hero-visual"
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ duration: 0.8 }}
-                >
-                  <div className="visual-circle glass">
-                    <BarChart3 size={120} className="visual-icon" />
-                  </div>
-                  <div className="visual-decoration decoration-1"></div>
-                  <div className="visual-decoration decoration-2"></div>
                 </motion.div>
               </div>
             </section>

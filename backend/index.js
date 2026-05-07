@@ -12,11 +12,17 @@ const port = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
-// Supabase Client
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+// Supabase Client (Optional)
+let supabase = null;
+if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  supabase = createClient(
+    process.env.SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_ROLE_KEY
+  );
+  console.log('Supabase client initialized');
+} else {
+  console.warn('Supabase credentials missing. Some features may not be available.');
+}
 
 // Routes
 app.get('/', (req, res) => {
