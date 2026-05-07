@@ -12,7 +12,7 @@ import metricsIcon from './assets/metrics.png';
 import localizedIcon from './assets/localized.png';
 
 const Navbar = ({ currentView, setView, session }) => (
-  <nav className="navbar glass">
+  <nav className="navbar">
     <div className="container nav-content">
       <div className="logo" onClick={() => setView('home')} style={{ cursor: 'pointer' }}>
         <Shield className="logo-icon" size={24} />
@@ -85,17 +85,16 @@ const Stardust = () => {
     };
 
     const createParticles = () => {
-      const count = 150;
+      const count = 300; // Increased count to fill empty spaces
       const colors = ['#6366f1', '#8b5cf6', '#ec4899', '#38bdf8', '#fbbf24', '#ffffff'];
       particles.current = Array.from({ length: count }, () => ({
         x: Math.random() * canvas.width,
         y: Math.random() * canvas.height,
-        size: Math.random() * 2 + 1,
-        baseSize: Math.random() * 2 + 1,
+        size: Math.random() * 1.5 + 0.5, // Slightly smaller for higher density
+        baseSize: Math.random() * 1.5 + 0.5,
         color: colors[Math.floor(Math.random() * colors.length)],
         vx: 0,
-        vy: -Math.random() * 1 - 0.5, // Float up speed
-        history: [],
+        vy: -Math.random() * 0.6 - 0.2, // Slower base float
         scatter: 0
       }));
     };
@@ -117,21 +116,29 @@ const Stardust = () => {
       particles.current.forEach(p => {
         const dx = mouse.current.x - p.x;
         const dy = mouse.current.y - p.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        const threshold = 150;
+        const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+        
+        const targetRadius = 80; // The ring radius
+        const threshold = 150; // Interaction zone
 
-        // Magnet / Gather effect
-        if (dist < threshold && mouseSpeed < 5) {
-          const force = (threshold - dist) / threshold;
-          p.vx += dx * force * 0.02;
-          p.vy += dy * force * 0.02;
-          p.size = p.baseSize * (1 + force);
-        } else if (dist < threshold && mouseSpeed >= 5) {
-          // Scatter effect
-          p.scatter = 60; // 60 frames approx 1-2s
-          const force = (threshold - dist) / threshold;
-          p.vx -= mouse.current.vx * force * 0.5;
-          p.vy -= mouse.current.vy * force * 0.5;
+        // Ring Gravity effect
+        if (dist < threshold && mouseSpeed < 4) {
+          const distFromRing = dist - targetRadius;
+          const pullStrength = 0.003; // Minimal gravitational pull
+          
+          // Force towards the target ring radius
+          const force = distFromRing * pullStrength;
+          p.vx += (dx / dist) * force;
+          p.vy += (dy / dist) * force;
+          
+          // Coordinated damping
+          p.vx *= 0.96;
+          p.vy *= 0.96;
+        } else if (dist < 100 && mouseSpeed >= 4) {
+          // Minimal scatter
+          p.scatter = 30;
+          p.vx -= mouse.current.vx * 0.1;
+          p.vy -= mouse.current.vy * 0.1;
         }
 
         // Apply velocities
@@ -139,13 +146,13 @@ const Stardust = () => {
         p.y += p.vy;
 
         // Friction / Return to normal
-        p.vx *= 0.95;
+        p.vx *= 0.98;
         if (p.scatter > 0) {
           p.scatter--;
         } else {
-          // Normal float up behavior
-          p.vy += (-1 - p.vy) * 0.05;
-          p.size += (p.baseSize - p.size) * 0.1;
+          // Normal float behavior
+          p.vy += (-0.5 - p.vy) * 0.02;
+          p.size += (p.baseSize - p.size) * 0.05;
         }
 
         // Screen wrap
