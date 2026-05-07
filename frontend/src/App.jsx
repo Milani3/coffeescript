@@ -22,22 +22,14 @@ const Navbar = ({ currentView, setView, session }) => (
         <button onClick={() => setView('home')} className={currentView === 'home' ? 'active' : ''}>
           Features
         </button>
-        <button onClick={() => setView('dashboard')} className={currentView === 'dashboard' ? 'active' : ''}>
-          Dashboard
-        </button>
         {session ? (
           <button className="btn-secondary logout-btn" onClick={() => supabase.auth.signOut()}>
             <LogOut size={18} /> Sign Out
           </button>
         ) : (
-          <div style={{ display: 'flex', gap: '1rem' }}>
-             <button onClick={() => setView('auth')} className="btn-secondary" style={{ padding: '0.5rem 1rem', fontSize: '0.9rem' }}>
-              Sign In
-            </button>
-            <button className="btn-primary" onClick={() => setView('auth')} style={{ padding: '0.5rem 1rem', fontSize: '0.9rem' }}>
-              Get Started
-            </button>
-          </div>
+          <button className="btn-primary" onClick={() => setView('auth')}>
+            Get Started
+          </button>
         )}
       </div>
     </div>

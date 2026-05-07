@@ -1,3 +1,38 @@
+@font-face {
+  font-family: 'Causten';
+  src: url('./assets/fonts/Causten-Regular.otf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Causten';
+  src: url('./assets/fonts/Causten-Medium.otf') format('opentype');
+  font-weight: 500;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Causten';
+  src: url('./assets/fonts/Causten-SemiBold.otf') format('opentype');
+  font-weight: 600;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Causten';
+  src: url('./assets/fonts/Causten-Bold.otf') format('opentype');
+  font-weight: 700;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Causten';
+  src: url('./assets/fonts/Causten-ExtraBold.otf') format('opentype');
+  font-weight: 800;
+  font-style: normal;
+}
+
 :root {
   --bg-primary: #030303;
   --bg-secondary: #0a0a0a;
@@ -19,7 +54,7 @@
   --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
   --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
   
-  --font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  --font-family: 'Causten', system-ui, -apple-system, sans-serif;
 }
 
 * {
