@@ -70,132 +70,59 @@ const FeatureCard = ({ icon, title, description, delay }) => {
 };
 
 const Stardust = () => {
-  const canvasRef = useRef(null);
-  const mouse = useRef({ x: -1000, y: -1000, vx: 0, vy: 0, lastX: 0, lastY: 0 });
-  const particles = useRef([]);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
-    let animationFrame;
-
-    const resize = () => {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-    };
-
-    const createParticles = () => {
-      const count = 300; // Increased count to fill empty spaces
-      const colors = ['#6366f1', '#8b5cf6', '#ec4899', '#38bdf8', '#fbbf24', '#ffffff'];
-      particles.current = Array.from({ length: count }, () => ({
-        x: Math.random() * canvas.width,
-        y: Math.random() * canvas.height,
-        size: Math.random() * 1.5 + 0.5, // Slightly smaller for higher density
-        baseSize: Math.random() * 1.5 + 0.5,
-        color: colors[Math.floor(Math.random() * colors.length)],
-        vx: 0,
-        vy: -Math.random() * 0.6 - 0.2, // Slower base float
-        scatter: 0
-      }));
-    };
-
-    const handleMouseMove = (e) => {
-      mouse.current.vx = e.clientX - mouse.current.lastX;
-      mouse.current.vy = e.clientY - mouse.current.lastY;
-      mouse.current.lastX = e.clientX;
-      mouse.current.lastY = e.clientY;
-      mouse.current.x = e.clientX;
-      mouse.current.y = e.clientY;
-    };
-
-    const animate = () => {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      
-      const mouseSpeed = Math.sqrt(mouse.current.vx ** 2 + mouse.current.vy ** 2);
-      
-      particles.current.forEach(p => {
-        const dx = mouse.current.x - p.x;
-        const dy = mouse.current.y - p.y;
-        const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+  const stars = Array.from({ length: 150 });
+  const colors = ['#6366f1', '#8b5cf6', '#ec4899', '#38bdf8', '#fbbf24'];
+  
+  return (
+    <div className="stardust">
+      {stars.map((_, i) => {
+        const isColored = Math.random() < 0.4;
+        const color = isColored ? colors[Math.floor(Math.random() * colors.length)] : 'white';
+        const parallaxFactor = Math.random() * 20 + 10;
         
-        const targetRadius = 80; // The ring radius
-        const threshold = 150; // Interaction zone
-
-        // Ring Gravity effect
-        if (dist < threshold && mouseSpeed < 4) {
-          const distFromRing = dist - targetRadius;
-          const pullStrength = 0.003; // Minimal gravitational pull
-          
-          // Force towards the target ring radius
-          const force = distFromRing * pullStrength;
-          p.vx += (dx / dist) * force;
-          p.vy += (dy / dist) * force;
-          
-          // Coordinated damping
-          p.vx *= 0.96;
-          p.vy *= 0.96;
-        } else if (dist < 100 && mouseSpeed >= 4) {
-          // Minimal scatter
-          p.scatter = 30;
-          p.vx -= mouse.current.vx * 0.1;
-          p.vy -= mouse.current.vy * 0.1;
-        }
-
-        // Apply velocities
-        p.x += p.vx;
-        p.y += p.vy;
-
-        // Friction / Return to normal
-        p.vx *= 0.98;
-        if (p.scatter > 0) {
-          p.scatter--;
-        } else {
-          // Normal float behavior
-          p.vy += (-0.5 - p.vy) * 0.02;
-          p.size += (p.baseSize - p.size) * 0.05;
-        }
-
-        // Screen wrap
-        if (p.y < -20) p.y = canvas.height + 20;
-        if (p.x < -20) p.x = canvas.width + 20;
-        if (p.x > canvas.width + 20) p.x = -20;
-
-        // Draw
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-        ctx.fillStyle = p.color;
-        ctx.shadowBlur = p.color === '#ffffff' ? 5 : 12;
-        ctx.shadowColor = p.color;
-        ctx.globalAlpha = 0.6;
-        ctx.fill();
-      });
-
-      // Decay mouse velocity
-      mouse.current.vx *= 0.9;
-      mouse.current.vy *= 0.9;
-
-      animationFrame = requestAnimationFrame(animate);
-    };
-
-    window.addEventListener('resize', resize);
-    window.addEventListener('mousemove', handleMouseMove);
-    resize();
-    createParticles();
-    animate();
-
-    return () => {
-      window.removeEventListener('resize', resize);
-      window.removeEventListener('mousemove', handleMouseMove);
-      cancelAnimationFrame(animationFrame);
-    };
-  }, []);
-
-  return <canvas ref={canvasRef} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none' }} />;
+        return (
+          <div 
+            key={i} 
+            className="star-wrapper" 
+            style={{
+              left: `${Math.random() * 100}%`,
+              top: '0',
+              '--parallax': parallaxFactor
+            }}
+          >
+            <div 
+              className="star" 
+              style={{
+                width: `${Math.random() * (isColored ? 4 : 2) + 1}px`,
+                height: `${Math.random() * (isColored ? 4 : 2) + 1}px`,
+                background: color,
+                boxShadow: isColored ? `0 0 12px ${color}` : '0 0 8px rgba(255, 255, 255, 0.5)',
+                '--duration': `${Math.random() * 15 + 10}s`,
+                animationDelay: `${Math.random() * 20}s`
+              }}
+            />
+          </div>
+        );
+      })}
+    </div>
+  );
 };
 
 function App() {
   const [view, setView] = useState('home');
   const [session, setSession] = useState(null);
+
+  // Mouse tracking for subtle parallax
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      const x = (e.clientX / window.innerWidth - 0.5) * 2;
+      const y = (e.clientY / window.innerHeight - 0.5) * 2;
+      document.documentElement.style.setProperty('--mouse-x', x);
+      document.documentElement.style.setProperty('--mouse-y', y);
+    };
+    window.addEventListener('mousemove', handleMouseMove);
+    return () => window.removeEventListener('mousemove', handleMouseMove);
+  }, []);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
