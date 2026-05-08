@@ -53,16 +53,22 @@ if (app.Environment.IsDevelopment())
 
 app.UseCors("AllowAll");
 
-// Serve frontend static files
-app.UseDefaultFiles();
-app.UseStaticFiles(new StaticFileOptions
+// Serve frontend static files only if the directory exists
+var distPath = Path.Combine(builder.Environment.ContentRootPath, "frontend", "dist");
+if (Directory.Exists(distPath))
 {
-    FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(
-        Path.Combine(builder.Environment.ContentRootPath, "frontend", "dist")),
-    RequestPath = ""
-});
+    app.UseDefaultFiles();
+    app.UseStaticFiles(new StaticFileOptions
+    {
+        FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(distPath),
+        RequestPath = ""
+    });
 
-// Routes
+    app.MapFallbackToFile("index.html", new StaticFileOptions
+    {
+        FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(distPath)
+    });
+}
 app.MapGet("/", () => Results.Ok(new { message = "LEBA API is active (C# Edition)" }));
 
 app.MapPost("/api/predict", async ([FromBody] PredictionRequest request) =>
@@ -177,12 +183,6 @@ app.MapGet("/api/metrics", () => Results.Ok(new
     biasIndex = 0.24,
     totalAudits = 1240
 }));
-
-app.MapFallbackToFile("index.html", new StaticFileOptions
-{
-    FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(
-        Path.Combine(builder.Environment.ContentRootPath, "frontend", "dist"))
-});
 
 app.Run();
 
