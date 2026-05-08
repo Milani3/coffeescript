@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Shield, BarChart3, Users, ArrowRight, CheckCircle2, Globe, LayoutDashboard, Home } from 'lucide-react';
+import { Shield, BarChart3, Users, ArrowRight, CheckCircle2, Globe, LayoutDashboard, Home, LogOut } from 'lucide-react';
+import { supabase } from './lib/supabase';
 import Dashboard from './components/Dashboard';
+import Auth from './components/Auth';
 import './App.css';
 
 // Custom Icons
@@ -20,9 +22,15 @@ const Navbar = ({ currentView, setView, session }) => (
         <button onClick={() => setView('home')} className={currentView === 'home' ? 'active' : ''}>
           Features
         </button>
-        <button className="btn-primary" onClick={() => setView('dashboard')}>
-          Launch Auditor
-        </button>
+        {session ? (
+          <button className="btn-secondary logout-btn" onClick={() => supabase.auth.signOut()}>
+            <LogOut size={18} /> Sign Out
+          </button>
+        ) : (
+          <button className="btn-primary" onClick={() => setView('auth')}>
+            Get Started
+          </button>
+        )}
       </div>
     </div>
   </nav>
@@ -94,6 +102,9 @@ const Stardust = () => {
 
 function App() {
   const [view, setView] = useState('home');
+  const [session, setSession] = useState(null);
+
+  console.log('Current view:', view);
 
   // Mouse tracking for subtle parallax
   useEffect(() => {
@@ -107,8 +118,29 @@ function App() {
     return () => window.removeEventListener('mousemove', handleMouseMove);
   }, []);
 
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      if (session) {
+        setView('dashboard');
+      } else {
+        setView('home');
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
   const handleDashboardAccess = () => {
-    setView('dashboard');
+    if (session) {
+      setView('dashboard');
+    } else {
+      setView('auth');
+    }
   };
 
   return (
@@ -185,12 +217,18 @@ function App() {
           </motion.main>
         )}
 
-        {view === 'dashboard' && (
+        {view === 'auth' && (
+          <div className="auth-page-wrapper">
+            <Auth onBack={() => setView('home')} />
+          </div>
+        )}
+
+        {view === 'dashboard' && session && (
           <motion.div 
             key="dashboard"
             initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}
           >
-            <Dashboard />
+            <Dashboard user={session.user} />
           </motion.div>
         )}
       </AnimatePresence>
