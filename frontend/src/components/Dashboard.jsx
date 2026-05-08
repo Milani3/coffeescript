@@ -41,7 +41,7 @@ const Dashboard = () => {
   const [isAuditing, setIsAuditing] = useState(false);
 
   // 4. API Calls
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+  const API_URL = import.meta.env.VITE_API_URL || 'https://coffeescript.onrender.com';
 
   const fetchMetrics = async () => {
     try {
