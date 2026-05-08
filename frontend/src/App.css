@@ -99,6 +99,13 @@
   color: var(--text-secondary);
 }
 
+.auth-page-wrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding-top: 80px; /* Space for fixed navbar */
+}
+
 /* Hero Section */
 .hero {
   padding: 220px 0 120px;
@@ -147,7 +154,7 @@
   padding: 1rem 2rem;
   font-size: 1.1rem;
   border-radius: 100px;
-  box-shadow: 0 0 30px rgba(99, 102, 241, 0.3);
+  box-shadow: 0 0 30px rgba(56, 189, 248, 0.3);
 }
 
 .btn-secondary {

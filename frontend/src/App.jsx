@@ -104,6 +104,8 @@ function App() {
   const [view, setView] = useState('home');
   const [session, setSession] = useState(null);
 
+  console.log('Current view:', view);
+
   // Mouse tracking for subtle parallax
   useEffect(() => {
     const handleMouseMove = (e) => {
@@ -216,12 +218,9 @@ function App() {
         )}
 
         {view === 'auth' && (
-          <motion.div 
-            key="auth"
-            initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }}
-          >
+          <div className="auth-page-wrapper">
             <Auth onBack={() => setView('home')} />
-          </motion.div>
+          </div>
         )}
 
         {view === 'dashboard' && session && (
