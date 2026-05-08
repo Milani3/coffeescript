@@ -41,9 +41,11 @@ const Dashboard = () => {
   const [isAuditing, setIsAuditing] = useState(false);
 
   // 4. API Calls
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
   const fetchMetrics = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/metrics');
+      const response = await fetch(`${API_URL}/api/metrics`);
       const data = await response.json();
       setMetrics(data);
     } catch (e) { console.error(e); }
@@ -54,7 +56,7 @@ const Dashboard = () => {
   const runSimulation = async () => {
     setIsAuditing(true);
     try {
-      const response = await fetch('http://localhost:5000/api/predict', {
+      const response = await fetch(`${API_URL}/api/predict`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ formData, biasSettings })
