@@ -62,116 +62,69 @@ const Auth = ({ onBack }) => {
   };
 
   return (
-    <div className="cosmos-auth">
-      <div className="cosmos-card">
-        <div className="cosmos-logo-container">
-          <div className="cosmos-outer-circle">
-            <div className="cosmos-inner-dot"></div>
+    <div className="leba-auth-container">
+      <div className="auth-card">
+        <div className="auth-header">
+          <div className="auth-logo">
+            <Shield size={20} className="logo-icon" />
+            <span>leba</span>
           </div>
-          <h1>COSMOS</h1>
-          <p className="stellar-subtitle">STELLAR AUTHENTICATION PORTAL</p>
+          <h1>{isRegister ? 'Create account' : 'Welcome back'}</h1>
         </div>
 
-        <div className="auth-tabs">
-          <button 
-            className={`tab-btn ${!isRegister ? 'active' : ''}`}
-            onClick={() => setIsRegister(false)}
-          >
-            SIGN IN
-          </button>
-          <button 
-            className={`tab-btn ${isRegister ? 'active' : ''}`}
-            onClick={() => setIsRegister(true)}
-          >
-            SIGN UP
-          </button>
-          <div className={`tab-indicator ${isRegister ? 'on-signup' : 'on-signin'}`} />
-        </div>
-
-        <form onSubmit={handleAuth} className="cosmos-form">
-          <div className="form-scroll-area">
-            <div className="input-field">
-              <label>EMAIL ADDRESS</label>
-              <div className="input-wrapper">
-                <input 
-                  type="email" 
-                  name="email"
-                  placeholder="you@universe.com" 
-                  value={formData.email}
-                  onChange={handleChange}
-                  required 
-                />
-              </div>
-            </div>
-
-            <div className="input-field">
-              <label>PASSWORD</label>
-              <div className="input-wrapper">
-                <input 
-                  type="password" 
-                  name="password"
-                  placeholder="••••••••" 
-                  value={formData.password}
-                  onChange={handleChange}
-                  required 
-                />
-              </div>
-            </div>
-
-            {isRegister && (
-              <div className="register-fields">
-                <div className="input-field">
-                  <label>FULL NAME</label>
-                  <div className="input-wrapper">
-                    <input type="text" name="fullName" placeholder="Full Name" value={formData.fullName} onChange={handleChange} required />
-                  </div>
-                </div>
-                <div className="input-grid">
-                   <div className="input-field">
-                    <label>AGE</label>
-                    <div className="input-wrapper">
-                      <input type="number" name="age" placeholder="Age" value={formData.age} onChange={handleChange} required />
-                    </div>
-                  </div>
-                  <div className="input-field">
-                    <label>GENDER</label>
-                    <div className="input-wrapper">
-                      <select name="gender" value={formData.gender} onChange={handleChange} required>
-                        <option value="">SELECT</option>
-                        <option value="male">MALE</option>
-                        <option value="female">FEMALE</option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
-                <div className="input-field">
-                  <label>MARITAL STATUS</label>
-                  <div className="input-wrapper">
-                    <select name="maritalStatus" value={formData.maritalStatus} onChange={handleChange} required>
-                      <option value="">SELECT</option>
-                      <option value="single">SINGLE</option>
-                      <option value="married">MARRIED</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-            )}
+        <form onSubmit={handleAuth} className="auth-form">
+          <div className="input-group">
+            <input 
+              type="email" 
+              name="email"
+              placeholder="Email address" 
+              value={formData.email}
+              onChange={handleChange}
+              required 
+            />
           </div>
 
-          {error && <div className="auth-error-msg">{error}</div>}
+          <div className="input-group password-group">
+            <input 
+              type="password" 
+              name="password"
+              placeholder="Password" 
+              value={formData.password}
+              onChange={handleChange}
+              required 
+            />
+            <button type="button" className="password-toggle">
+              <Lock size={16} />
+            </button>
+          </div>
 
-          <button type="submit" className="launch-btn" disabled={loading}>
-            {loading ? 'PROCESSING...' : `LAUNCH ${isRegister ? 'SIGN UP' : 'SIGN IN'}`}
+          {error && <div className="error-message">{error}</div>}
+
+          <button type="submit" className="submit-btn" disabled={loading}>
+            {loading ? 'Processing...' : (isRegister ? 'Create account' : 'Log in')}
           </button>
         </form>
 
-        <div className="auth-switch">
-          <p>
-            {isRegister ? 'Already have an account?' : "Don't have an account?"}
-            <button onClick={() => setIsRegister(!isRegister)}>
-              {isRegister ? 'Sign in' : 'Sign up'}
-            </button>
-          </p>
+        <div className="social-divider">
+          <span>or {isRegister ? 'sign up' : 'log in'} with</span>
+        </div>
+
+        <div className="social-links">
+          <button className="social-btn"><Mail size={20} /></button>
+          <button className="social-btn"><Shield size={20} /></button>
+          <button className="social-btn"><User size={20} /></button>
+        </div>
+
+        <p className="legal-text">
+          By creating an account you agree to LEBA's<br />
+          <a href="#">Terms of Services</a> and <a href="#">Privacy Policy</a>.
+        </p>
+
+        <div className="auth-footer">
+          {isRegister ? 'Have an account?' : "Don't have an account?"}
+          <button onClick={() => setIsRegister(!isRegister)}>
+            {isRegister ? 'Log in' : 'Sign up'}
+          </button>
         </div>
       </div>
     </div>
