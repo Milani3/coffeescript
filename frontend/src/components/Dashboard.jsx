@@ -11,7 +11,8 @@ import {
   Info,
   ChevronRight,
   TrendingUp,
-  AlertTriangle
+  AlertTriangle,
+  BarChart3
 } from 'lucide-react';
 import './Dashboard.css';
 
@@ -37,13 +38,17 @@ const Dashboard = () => {
 
   // 3. Result State
   const [result, setResult] = useState(null);
+  const [batchResult, setBatchResult] = useState(null);
   const [metrics, setMetrics] = useState(null);
   const [isAuditing, setIsAuditing] = useState(false);
+  const [isBatchAuditing, setIsBatchAuditing] = useState(false);
 
   // 4. API Calls
+  const API_URL = import.meta.env.VITE_API_URL || 'https://coffeescript.onrender.com';
+
   const fetchMetrics = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/metrics');
+      const response = await fetch(`${API_URL}/api/metrics`);
       const data = await response.json();
       setMetrics(data);
     } catch (e) { console.error(e); }
@@ -54,7 +59,7 @@ const Dashboard = () => {
   const runSimulation = async () => {
     setIsAuditing(true);
     try {
-      const response = await fetch('http://localhost:5000/api/predict', {
+      const response = await fetch(`${API_URL}/api/predict`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ formData, biasSettings })
@@ -65,6 +70,23 @@ const Dashboard = () => {
       console.error('Audit failed:', error);
     } finally {
       setIsAuditing(false);
+    }
+  };
+
+  const runBatchAudit = async () => {
+    setIsBatchAuditing(true);
+    try {
+      const response = await fetch(`${API_URL}/api/audit/batch`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ count: 30, biasSettings })
+      });
+      const data = await response.json();
+      setBatchResult(data);
+    } catch (error) {
+      console.error('Batch Audit failed:', error);
+    } finally {
+      setIsBatchAuditing(false);
     }
   };
 
@@ -211,7 +233,50 @@ const Dashboard = () => {
                 </button>
               </div>
             </div>
+
+            <button 
+              className="btn-secondary w-full mt-4" 
+              onClick={runBatchAudit} 
+              disabled={isBatchAuditing}
+              style={{ border: '1px dashed var(--accent-primary)' }}
+            >
+              {isBatchAuditing ? 'Processing Batch...' : 'Run Batch Audit (30 Cases)'}
+            </button>
           </div>
+
+          {batchResult && (
+            <motion.div 
+              initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+              className="card glass batch-report-section"
+            >
+              <div className="card-header">
+                <BarChart3 size={20} className="pos" />
+                <h3>Batch Fairness Report</h3>
+              </div>
+              <div className="report-summary">
+                <div className="summary-item">
+                  <label>Fairness Score</label>
+                  <span className={batchResult.summary.biasDetected ? 'neg' : 'pos'}>
+                    {batchResult.summary.fairnessScore}%
+                  </span>
+                </div>
+                <div className="summary-item">
+                  <label>Disparate Impact</label>
+                  <span>{batchResult.metrics.genderParity.disparateImpactRatio}</span>
+                </div>
+              </div>
+              <div className="mini-chart-container">
+                {batchResult.metrics.regionalDisparity.map((d, i) => (
+                  <div key={i} className="mini-bar-row">
+                    <span className="tiny-label">{d.region}</span>
+                    <div className="tiny-bar">
+                      <div className="tiny-fill" style={{ width: `${d.approvalRate * 100}%` }}></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+          )}
 
           <div className="card glass metrics-section">
             <div className="card-header">

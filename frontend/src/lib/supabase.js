@@ -7,6 +7,16 @@ if (!supabaseUrl || !supabaseAnonKey) {
   console.warn('Supabase credentials missing. Please check your .env file.')
 }
 
-export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '')
+export const supabase = (supabaseUrl && supabaseAnonKey) 
+  ? createClient(supabaseUrl, supabaseAnonKey)
+  : { 
+      auth: { 
+        getSession: async () => ({ data: { session: null }, error: null }),
+        onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } }),
+        signUp: async () => ({ data: { user: null, session: null }, error: new Error('Supabase credentials missing') }),
+        signInWithPassword: async () => ({ data: { user: null, session: null }, error: new Error('Supabase credentials missing') }),
+        signOut: async () => {}
+      } 
+    };
 
 
