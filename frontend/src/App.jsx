@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Shield, BarChart3, Users, ArrowRight, CheckCircle2, Globe, LayoutDashboard, Home, LogOut } from 'lucide-react';
 import { supabase } from './lib/supabase';
 import Dashboard from './components/Dashboard';
+import DashboardV2 from './components/DashboardV2';
 import Auth from './components/Auth';
 import './App.css';
 
@@ -226,9 +227,9 @@ function App() {
         {view === 'dashboard' && session && (
           <motion.div 
             key="dashboard"
-            initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
           >
-            <Dashboard user={session.user} />
+            <DashboardV2 user={session.user} />
           </motion.div>
         )}
       </AnimatePresence>

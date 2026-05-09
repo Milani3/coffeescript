@@ -241,6 +241,72 @@
 }
 
 .w-full { width: 100%; }
+.mt-4 { margin-top: 1rem; }
+
+/* Batch Report Styling */
+.batch-report-section {
+  padding: 1.5rem !important;
+  border: 1px solid var(--accent-primary) !important;
+}
+
+.report-summary {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.summary-item {
+  background: rgba(255, 255, 255, 0.05);
+  padding: 1rem;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.summary-item label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.summary-item span {
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.mini-chart-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.mini-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.tiny-label {
+  width: 60px;
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+}
+
+.tiny-bar {
+  flex: 1;
+  height: 4px;
+  background: var(--bg-tertiary);
+  border-radius: 2px;
+}
+
+.tiny-fill {
+  height: 100%;
+  background: var(--accent-primary);
+  border-radius: 2px;
+}
 
 @media (max-width: 1200px) {
   .dashboard-grid {
