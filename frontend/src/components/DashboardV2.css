@@ -2,7 +2,7 @@
   min-height: 100vh;
   background: #000;
   color: #fff;
-  padding: 2rem;
+  padding: 100px 2rem 2rem; /* 80px for nav + 20px padding */
   font-family: 'Causten', sans-serif;
   display: grid;
   grid-template-columns: 80px 1fr;

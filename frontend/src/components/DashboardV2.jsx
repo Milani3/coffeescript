@@ -19,6 +19,7 @@ import './DashboardV2.css';
 const DashboardV2 = () => {
   const [batchResult, setBatchResult] = useState(null);
   const [isBatchAuditing, setIsBatchAuditing] = useState(false);
+  const [error, setError] = useState(null);
   const [biasSettings, setBiasSettings] = useState({
     penalizeLocation: true,
     genderBias: true,
@@ -29,16 +30,23 @@ const DashboardV2 = () => {
 
   const runBatchAudit = async () => {
     setIsBatchAuditing(true);
+    setError(null);
     try {
       const response = await fetch(`${API_URL}/api/audit/batch`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ count: 30, biasSettings })
       });
+      
+      if (!response.ok) {
+        throw new Error(`Server responded with ${response.status}: ${response.statusText}`);
+      }
+
       const data = await response.json();
       setBatchResult(data);
-    } catch (error) {
-      console.error('Batch Audit failed:', error);
+    } catch (err) {
+      console.error('Batch Audit failed:', err);
+      setError(err.message);
     } finally {
       setIsBatchAuditing(false);
     }
@@ -93,6 +101,20 @@ const DashboardV2 = () => {
             <div className="side-icon"><Bell size={24} /></div>
           </div>
         </header>
+
+        {error && (
+          <div style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', padding: '1.5rem', borderRadius: '16px', border: '1px solid #ef4444', marginBottom: '2rem' }}>
+            <strong>Audit Error:</strong> {error}
+            <p style={{ fontSize: '0.8rem', marginTop: '0.5rem' }}>Please check if your backend is running at {API_URL}</p>
+          </div>
+        )}
+
+        {isBatchAuditing && !batchResult && (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '50vh', gap: '1rem' }}>
+            <div className="status-dot status-approved" style={{ width: 40, height: 40 }}></div>
+            <p style={{ color: '#666' }}>Generating 30 synthetic applicants and auditing for bias...</p>
+          </div>
+        )}
 
         {batchResult && (
           <>
