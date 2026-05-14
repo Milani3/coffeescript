@@ -26,7 +26,7 @@ const DashboardV2 = () => {
     strictCriminalRecord: true
   });
 
-  const API_URL = import.meta.env.VITE_API_URL || 'https://coffeescript.onrender.com';
+  const API_URL = import.meta.env.VITE_API_URL || '';
 
   const runBatchAudit = async () => {
     setIsBatchAuditing(true);
