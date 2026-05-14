@@ -54,23 +54,41 @@ const DashboardV2 = () => {
 
   useEffect(() => { runBatchAudit(); }, []);
 
-  // SVG Bar Chart Component
-  const RegionalChart = ({ data }) => {
-    const maxVal = Math.max(...data.map(d => d.approvalRate));
+  // Reusable Bar Chart Component
+  const BarChart = ({ data, labelKey, valueKey, color = "#7462f3" }) => {
+    if (!data || data.length === 0) {
+      return (
+        <div style={{ height: 180, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#666', fontSize: '0.8rem', border: '1px dashed #333', borderRadius: '12px' }}>
+          Insufficient data for analysis
+        </div>
+      );
+    }
     return (
       <svg className="svg-chart" viewBox="0 0 400 200">
         {data.map((d, i) => {
-          const barHeight = (d.approvalRate / 1) * 150;
+          const val = d[valueKey] || 0;
+          const barHeight = Math.max((val / 1) * 150, 5); // Min height of 5px
+          const xPos = i * (400 / data.length) + 10;
+          const barWidth = Math.max((400 / data.length) - 15, 10);
           return (
             <g key={i}>
               <rect 
-                x={i * 55 + 20} 
+                x={xPos} 
                 y={170 - barHeight} 
-                width="35" 
+                width={barWidth} 
                 height={barHeight} 
+                fill={color}
                 className="bar-rect"
               />
-              <text x={i * 55 + 22} y="190" fill="#666" fontSize="10">{d.region}</text>
+              <text 
+                x={xPos + barWidth / 2} 
+                y="190" 
+                fill="#666" 
+                fontSize="10" 
+                textAnchor="middle"
+              >
+                {d[labelKey]}
+              </text>
             </g>
           );
         })}
@@ -146,9 +164,9 @@ const DashboardV2 = () => {
             <div className="charts-row">
               <div className="chart-card">
                 <h3>Regional Fairness Breakdown</h3>
-                <RegionalChart data={batchResult.metrics.regionalDisparity} />
+                <BarChart data={batchResult.metrics.regionalDisparity} labelKey="region" valueKey="approvalRate" />
               </div>
-              <div className="chart-card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              <div className="chart-card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
                 <h3>Gender Parity Check</h3>
                 <svg width="160" height="160" viewBox="0 0 100 100">
                   <circle cx="50" cy="50" r="40" fill="none" stroke="#222" strokeWidth="12" />
@@ -165,6 +183,17 @@ const DashboardV2 = () => {
                 <div style={{ marginTop: '1rem', textAlign: 'center' }}>
                   <p style={{ fontSize: '0.8rem', color: '#666' }}>Female Approval Rate</p>
                 </div>
+              </div>
+            </div>
+
+            <div className="charts-row" style={{ marginTop: '2rem' }}>
+              <div className="chart-card">
+                <h3>Device Disparity (Proxy Bias)</h3>
+                <BarChart data={batchResult.metrics.deviceDisparity} labelKey="device" valueKey="approvalRate" color="#ec4899" />
+              </div>
+              <div className="chart-card">
+                <h3>Income Bracket Analysis</h3>
+                <BarChart data={batchResult.metrics.incomeDisparity} labelKey="bracket" valueKey="approvalRate" color="#10b981" />
               </div>
             </div>
 

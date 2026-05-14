@@ -232,7 +232,26 @@ app.MapPost("/api/audit/batch", async ([FromBody] BatchAuditRequest request) =>
                 .Select(g => new { 
                     Region = g.Key, 
                     ApprovalRate = Math.Round((double)g.Count(r => r.Approved) / g.Count(), 2) 
-                })
+                }),
+            deviceDisparity = results.GroupBy(r => {
+                if (r.Applicant.DeviceType.Contains("iPhone")) return "iPhone";
+                if (r.Applicant.DeviceType.Contains("Samsung")) return "Samsung";
+                if (r.Applicant.DeviceType.Contains("Infinix") || r.Applicant.DeviceType.Contains("Tecno")) return "Infinix/Tecno";
+                return "Other";
+            })
+            .Select(g => new {
+                Device = g.Key,
+                ApprovalRate = Math.Round((double)g.Count(r => r.Approved) / g.Count(), 2)
+            }),
+            incomeDisparity = results.GroupBy(r => {
+                if (r.Applicant.Income < 150000) return "Low";
+                if (r.Applicant.Income < 400000) return "Mid";
+                return "High";
+            })
+            .Select(g => new {
+                Bracket = g.Key,
+                ApprovalRate = Math.Round((double)g.Count(r => r.Approved) / g.Count(), 2)
+            })
         },
         details = results.Take(10) // Return first 10 for sample inspection
     };
