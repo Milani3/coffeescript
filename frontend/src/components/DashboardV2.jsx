@@ -35,7 +35,7 @@ const DashboardV2 = () => {
       const response = await fetch(`${API_URL}/api/audit/batch`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ count: 30, biasSettings })
+        body: JSON.stringify({ count: 100, biasSettings })
       });
       
       if (!response.ok) {
