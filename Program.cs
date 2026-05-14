@@ -230,8 +230,8 @@ app.MapPost("/api/audit/batch", async ([FromBody] BatchAuditRequest request) =>
             },
             regionalDisparity = results.GroupBy(r => r.Applicant.Location)
                 .Select(g => new { 
-                    Region = g.Key, 
-                    ApprovalRate = Math.Round((double)g.Count(r => r.Approved) / g.Count(), 2) 
+                    region = g.Key, 
+                    approvalRate = Math.Round((double)g.Count(r => r.Approved) / g.Count(), 2) 
                 }),
             deviceDisparity = results.GroupBy(r => {
                 if (r.Applicant.DeviceType.Contains("iPhone")) return "iPhone";
@@ -240,8 +240,8 @@ app.MapPost("/api/audit/batch", async ([FromBody] BatchAuditRequest request) =>
                 return "Other";
             })
             .Select(g => new {
-                Device = g.Key,
-                ApprovalRate = Math.Round((double)g.Count(r => r.Approved) / g.Count(), 2)
+                device = g.Key,
+                approvalRate = Math.Round((double)g.Count(r => r.Approved) / g.Count(), 2)
             }),
             incomeDisparity = results.GroupBy(r => {
                 if (r.Applicant.Income < 150000) return "Low";
@@ -249,8 +249,8 @@ app.MapPost("/api/audit/batch", async ([FromBody] BatchAuditRequest request) =>
                 return "High";
             })
             .Select(g => new {
-                Bracket = g.Key,
-                ApprovalRate = Math.Round((double)g.Count(r => r.Approved) / g.Count(), 2)
+                bracket = g.Key,
+                approvalRate = Math.Round((double)g.Count(r => r.Approved) / g.Count(), 2)
             })
         },
         details = results.Take(10) // Return first 10 for sample inspection
