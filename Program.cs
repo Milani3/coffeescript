@@ -57,19 +57,24 @@ app.UseCors("AllowAll");
 var distPath = Path.Combine(builder.Environment.ContentRootPath, "frontend", "dist");
 if (Directory.Exists(distPath))
 {
-    app.UseDefaultFiles();
+    var fileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(distPath);
+    app.UseDefaultFiles(new DefaultFilesOptions
+    {
+        FileProvider = fileProvider,
+        RequestPath = ""
+    });
     app.UseStaticFiles(new StaticFileOptions
     {
-        FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(distPath),
+        FileProvider = fileProvider,
         RequestPath = ""
     });
 
     app.MapFallbackToFile("index.html", new StaticFileOptions
     {
-        FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(distPath)
+        FileProvider = fileProvider
     });
 }
-app.MapGet("/", () => Results.Ok(new { message = "LEBA API is active (C# Edition)" }));
+app.MapGet("/api", () => Results.Ok(new { message = "LEBA API is active (C# Edition)" }));
 
 app.MapPost("/api/predict", async ([FromBody] PredictionRequest request) =>
 {
