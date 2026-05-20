@@ -130,7 +130,7 @@ const DashboardV2 = () => {
         {isBatchAuditing && !batchResult && (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '50vh', gap: '1rem' }}>
             <div className="status-dot status-approved" style={{ width: 40, height: 40 }}></div>
-            <p style={{ color: '#666' }}>Generating 30 synthetic applicants and auditing for bias...</p>
+            <p style={{ color: '#666' }}>Generating 100 synthetic applicants and auditing for bias...</p>
           </div>
         )}
 

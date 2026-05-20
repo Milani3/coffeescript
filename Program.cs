@@ -207,8 +207,20 @@ app.MapPost("/api/audit/batch", async ([FromBody] BatchAuditRequest request) =>
     double maleApprovalRate = maleResults.Count > 0 ? (double)maleResults.Count(r => r.Approved) / maleResults.Count : 0;
     double femaleApprovalRate = femaleResults.Count > 0 ? (double)femaleResults.Count(r => r.Approved) / femaleResults.Count : 0;
 
-    // Disparate Impact Ratio (DI)
-    double disparateImpact = femaleApprovalRate > 0 ? (femaleApprovalRate / maleApprovalRate) : 0;
+    // Disparate Impact Ratio (DI) - Safe calculation to avoid division by zero (Infinity/NaN)
+    double disparateImpact = 1.0;
+    if (maleApprovalRate > 0)
+    {
+        disparateImpact = femaleApprovalRate / maleApprovalRate;
+    }
+    else if (femaleApprovalRate > 0)
+    {
+        disparateImpact = 2.0; // High default ratio if male rate is 0 but female rate is positive
+    }
+    else
+    {
+        disparateImpact = 1.0; // Perfect parity if both are 0
+    }
 
     var report = new
     {
