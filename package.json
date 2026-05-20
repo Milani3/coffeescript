@@ -8,9 +8,7 @@
   "scripts": {
     "install:all": "npm install",
     "build": "npm run build --workspace=frontend",
-    "dev:frontend": "npm run dev --workspace=frontend",
-    "dev:backend": "dotnet run",
-    "dev": "concurrently \"npm run dev:frontend\" \"dotnet run\""
+    "dev": "npm run dev --workspace=frontend"
   },
   "devDependencies": {
     "concurrently": "^9.2.1"
