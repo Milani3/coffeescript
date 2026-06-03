@@ -220,3 +220,67 @@
     display: none; /* Hide less important columns on small screens */
   }
 }
+
+/* Custom Tab Buttons Styling */
+.tab-buttons {
+  display: flex;
+  gap: 0.5rem;
+  background: #0a0a0a;
+  padding: 0.4rem;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.tab-btn {
+  background: transparent;
+  color: #888;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.3s;
+}
+
+.tab-btn:hover {
+  color: #fff;
+}
+
+.tab-btn.active {
+  background: #222;
+  color: #fff;
+}
+
+/* Pulse animation for load state */
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.95); }
+}
+
+.animate-pulse {
+  animation: pulse 1.5s infinite ease-in-out;
+}
+
+/* Toggle inputs (Checkboxes) styling */
+.toggle-label input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: #7462f3;
+  cursor: pointer;
+}
+
+/* Audit history list item styling */
+.history-item-card {
+  transition: all 0.3s ease;
+}
+
+.history-item-card:hover {
+  border-color: #7462f3 !important;
+  box-shadow: 0 4px 12px rgba(116, 98, 243, 0.15);
+}
+
+/* General simulator styling overrides */
+.single-sim-layout .card {
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+

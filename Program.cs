@@ -295,18 +295,54 @@ List<SyntheticApplicant> GenerateApplicants(int count)
     var states = new[] { "Lagos", "Abuja", "Kano", "Rivers", "Delta", "Enugu", "Kaduna" };
     var genders = new[] { "Male", "Female" };
     var banks = new[] { "GTB", "Zenith", "Kuda", "Opay", "FirstBank" };
-    var devices = new[] { "iPhone", "Samsung S22", "Infinix Note", "Tecno Spark", "Redmi Note" };
+    var lowEndDevices = new[] { "Infinix Note", "Tecno Spark" };
+    var highEndDevices = new[] { "iPhone", "Samsung S22" };
+    var midEndDevices = new[] { "Redmi Note" };
 
-    return Enumerable.Range(0, count).Select(i => new SyntheticApplicant(
-        Id: $"APP-{1000 + i}",
-        Income: random.Next(50000, 800000),
-        CreditScore: random.Next(300, 850),
-        Location: states[random.Next(states.Length)],
-        Gender: genders[random.Next(genders.Length)],
-        Bank: banks[random.Next(banks.Length)],
-        DeviceType: devices[random.Next(devices.Length)],
-        CriminalRecord: random.Next(100) < 5 // 5% chance
-    )).ToList();
+    return Enumerable.Range(0, count).Select(i => {
+        var location = states[random.Next(states.Length)];
+        
+        // Correlate Location with Income: Biased/penalized states skew slightly lower
+        double income;
+        if (location == "Kano" || location == "Delta")
+        {
+            income = random.Next(40000, 250000);
+        }
+        else
+        {
+            income = random.Next(120000, 800000);
+        }
+
+        // Correlate Income with Device Type (Proxy Bias)
+        string deviceType;
+        if (income < 180000)
+        {
+            // 85% chance of low-end device
+            deviceType = random.Next(100) < 85 ? lowEndDevices[random.Next(lowEndDevices.Length)] : midEndDevices[0];
+        }
+        else if (income > 450000)
+        {
+            // 85% chance of high-end device
+            deviceType = random.Next(100) < 85 ? highEndDevices[random.Next(highEndDevices.Length)] : midEndDevices[0];
+        }
+        else
+        {
+            // Mid income: general mix
+            var all = lowEndDevices.Concat(highEndDevices).Concat(midEndDevices).ToArray();
+            deviceType = all[random.Next(all.Length)];
+        }
+
+        return new SyntheticApplicant(
+            Id: $"APP-{1000 + i}",
+            Income: income,
+            CreditScore: random.Next(300, 850),
+            Location: location,
+            Gender: genders[random.Next(genders.Length)],
+            Bank: banks[random.Next(banks.Length)],
+            DeviceType: deviceType,
+            CriminalRecord: random.Next(100) < 5 // 5% chance
+        );
+    }).ToList();
 }
 
 AuditResult RunAuditSimulation(SyntheticApplicant applicant, BiasSettings biasSettings)

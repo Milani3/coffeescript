@@ -1,0 +1,12 @@
+# Exclude large build output and dependency folders to minimize token footprint
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+bin/
+**/bin/
+obj/
+**/obj/
+.git/
+.env
+**/wwwroot/
