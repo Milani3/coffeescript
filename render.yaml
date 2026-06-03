@@ -1,0 +1,36 @@
+services:
+  # ─────────────────────────────────────────────────────────────────
+  # LEBA Full-Stack Service
+  # ASP.NET Core 8 backend + React/Vite frontend (served as static files)
+  # Built from the root Dockerfile using a multi-stage build.
+  # ─────────────────────────────────────────────────────────────────
+  - type: web
+    name: leba-app
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+
+    # Render will verify the app is alive at this path before marking healthy
+    healthCheckPath: /api
+
+    # These are set in the Render Dashboard → Environment tab.
+    # sync: false  means "I will fill these in manually – do not sync from a secret group"
+    envVars:
+      # ── Runtime env vars read by ASP.NET Core ──────────────────
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+
+      - key: SUPABASE_URL
+        sync: false
+
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+
+      # ── Vite build-time env vars (passed as Docker --build-arg) ─
+      # Render automatically forwards any env var that matches an ARG
+      # declared in the Dockerfile, so these feed into `vite build`.
+      - key: VITE_SUPABASE_URL
+        sync: false
+
+      - key: VITE_SUPABASE_ANON_KEY
+        sync: false

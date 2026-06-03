@@ -9,13 +9,22 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 // Configure CORS
+// • Development  → allow any origin (convenient for local Vite dev server)
+// • Production   → restrict to the Render-assigned public URL.
+//   Render automatically injects RENDER_EXTERNAL_URL, e.g.
+//   https://leba-app.onrender.com — no manual configuration needed.
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
+        policy.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader());
+
+    options.AddPolicy("Production", policy =>
     {
-        policy.AllowAnyOrigin()
-              .AllowAnyMethod()
-              .AllowAnyHeader();
+        var renderUrl = Environment.GetEnvironmentVariable("RENDER_EXTERNAL_URL");
+        if (!string.IsNullOrEmpty(renderUrl))
+            policy.WithOrigins(renderUrl).AllowAnyMethod().AllowAnyHeader();
+        else
+            policy.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader();
     });
 });
 
@@ -51,7 +60,8 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseCors("AllowAll");
+// Use the strict Production policy on Render; fall back to AllowAll locally.
+app.UseCors(app.Environment.IsDevelopment() ? "AllowAll" : "Production");
 
 // Serve frontend static files only if the directory exists
 var distPath = Path.Combine(builder.Environment.ContentRootPath, "frontend", "dist");
