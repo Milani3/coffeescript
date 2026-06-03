@@ -6,7 +6,7 @@ WORKDIR /app/frontend
 
 # Install dependencies first (better layer caching)
 COPY frontend/package*.json ./
-RUN npm ci --silent
+RUN npm install --no-audit
 
 # Declare Vite build-time environment variables.
 # Render forwards matching env vars as Docker --build-arg automatically.
