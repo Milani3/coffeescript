@@ -215,6 +215,7 @@ app.MapPost("/api/audit/batch", async ([FromBody] BatchAuditRequest request) =>
     }
 
     // Calculate Fairness Metrics
+    var totalProcessed = results.Count;
     var totalApproved = results.Count(r => r.Approved);
     var maleResults = results.Where(r => r.Applicant.Gender == "Male").ToList();
     var femaleResults = results.Where(r => r.Applicant.Gender == "Female").ToList();
@@ -230,8 +231,9 @@ app.MapPost("/api/audit/batch", async ([FromBody] BatchAuditRequest request) =>
         timestamp = DateTime.UtcNow.ToString("o"),
         summary = new
         {
-            totalProcessed = count,
-            overallApprovalRate = (double)totalApproved / count,
+            totalProcessed,
+            approvedCount = totalApproved,
+            overallApprovalRate = totalProcessed > 0 ? (double)totalApproved / totalProcessed : 0,
             biasDetected = disparateImpact < 0.8 || disparateImpact > 1.25,
             fairnessScore = Math.Round(fairnessScore, 2)
         },
@@ -241,6 +243,10 @@ app.MapPost("/api/audit/batch", async ([FromBody] BatchAuditRequest request) =>
             {
                 maleRate = Math.Round(maleApprovalRate, 2),
                 femaleRate = Math.Round(femaleApprovalRate, 2),
+                maleApproved = maleResults.Count(r => r.Approved),
+                femaleApproved = femaleResults.Count(r => r.Approved),
+                maleTotal = maleResults.Count,
+                femaleTotal = femaleResults.Count,
                 disparateImpactRatio = Math.Round(disparateImpact, 2)
             },
             regionalDisparity = results.GroupBy(r => r.Applicant.Location)
@@ -270,6 +276,9 @@ app.MapPost("/api/audit/batch", async ([FromBody] BatchAuditRequest request) =>
         },
         details = results.Take(10) // Return first 10 for sample inspection
     };
+
+    return Results.Ok(report);
+});
 
 app.MapPost("/api/audit/document", ([FromBody] DocumentAuditRequest request) =>
 {
@@ -370,18 +379,6 @@ app.MapPost("/api/audit/document", ([FromBody] DocumentAuditRequest request) =>
 
 app.Run();
 
-public record UploadedApplicant(
-    string Name,
-    double Income,
-    int CreditScore,
-    string Location,
-    string Gender,
-    string DeviceType,
-    bool Approved
-);
-
-public record DocumentAuditRequest(List<UploadedApplicant> Applicants);
-
 // Generation Logic
 List<SyntheticApplicant> GenerateApplicants(int count)
 {
@@ -469,8 +466,13 @@ double CalculateDisparateImpact(double protectedGroupApprovalRate, double refere
 
 double CalculateFairnessScore(double disparateImpact)
 {
-    var parityDistance = Math.Abs(1.0 - disparateImpact);
-    return Math.Clamp(100.0 - (parityDistance * 100.0), 0.0, 100.0);
+    if (disparateImpact <= 0)
+    {
+        return 0;
+    }
+
+    var parityRatio = Math.Min(disparateImpact, 1.0 / disparateImpact);
+    return Math.Clamp(parityRatio * 100.0, 0.0, 100.0);
 }
 
 // Models
@@ -508,3 +510,15 @@ public record PredictionRequest(
     FormData FormData,
     BiasSettings BiasSettings
 );
+
+public record UploadedApplicant(
+    string Name,
+    double Income,
+    int CreditScore,
+    string Location,
+    string Gender,
+    string DeviceType,
+    bool Approved
+);
+
+public record DocumentAuditRequest(List<UploadedApplicant> Applicants);

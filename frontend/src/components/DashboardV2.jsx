@@ -395,9 +395,9 @@ const DashboardV2 = () => {
                 <div className="kpi-grid">
                   <div className="kpi-card glass">
                     <label>Fairness Score</label>
-                    <h2>{batchResult.summary.fairnessScore}%</h2>
+                    <h2>{Number(batchResult.summary.fairnessScore).toFixed(1)}%</h2>
                     <div className={`kpi-trend ${batchResult.summary.biasDetected ? 'trend-down' : 'trend-up'}`}>
-                      {batchResult.summary.biasDetected ? 'Bias Detected' : 'Healthy Range'}
+                      {batchResult.summary.biasDetected ? 'Below parity range' : 'Within parity range'}
                     </div>
                   </div>
                   <div className="kpi-card glass">
@@ -407,13 +407,17 @@ const DashboardV2 = () => {
                   </div>
                   <div className="kpi-card glass">
                     <label>Disparate Impact</label>
-                    <h2>{batchResult.metrics.genderParity.disparateImpactRatio}</h2>
-                    <div className="kpi-trend trend-down">Target: 0.8 - 1.25</div>
+                    <h2>{Number(batchResult.metrics.genderParity.disparateImpactRatio).toFixed(2)}</h2>
+                    <div className={`kpi-trend ${batchResult.summary.biasDetected ? 'trend-down' : 'trend-up'}`}>
+                      F {batchResult.metrics.genderParity.femaleApproved}/{batchResult.metrics.genderParity.femaleTotal} vs M {batchResult.metrics.genderParity.maleApproved}/{batchResult.metrics.genderParity.maleTotal}
+                    </div>
                   </div>
                   <div className="kpi-card glass">
                     <label>Avg Approval</label>
-                    <h2>{(batchResult.summary.overallApprovalRate * 100).toFixed(0)}%</h2>
-                    <div className="kpi-trend trend-up">+2.4% vs last</div>
+                    <h2>{(batchResult.summary.overallApprovalRate * 100).toFixed(1)}%</h2>
+                    <div className="kpi-trend trend-up">
+                      {batchResult.summary.approvedCount}/{batchResult.summary.totalProcessed} approved
+                    </div>
                   </div>
                 </div>
 
