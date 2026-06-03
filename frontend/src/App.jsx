@@ -12,7 +12,7 @@ import demographicsIcon from './assets/demographics.png';
 import metricsIcon from './assets/metrics.png';
 import localizedIcon from './assets/localized.png';
 
-const Navbar = ({ currentView, setView, session, theme, toggleTheme }) => (
+const Navbar = ({ currentView, setView, session, theme, toggleTheme, onSignOut }) => (
   <nav className="navbar">
     <div className="container nav-content">
       <div className="logo" onClick={() => setView('home')} style={{ cursor: 'pointer' }}>
@@ -33,9 +33,7 @@ const Navbar = ({ currentView, setView, session, theme, toggleTheme }) => (
             justifyContent: 'center',
             padding: '8px',
             borderRadius: '50%',
-            backgroundColor: 'rgba(255, 255, 255, 0.08)',
             border: 'none',
-            color: 'inherit',
             cursor: 'pointer',
             fontSize: '1rem',
             transition: 'background-color 0.2s'
@@ -44,7 +42,7 @@ const Navbar = ({ currentView, setView, session, theme, toggleTheme }) => (
           {theme === 'dark' ? '☀️' : '🌙'}
         </button>
         {session ? (
-          <button className="btn-secondary logout-btn" onClick={() => supabase.auth.signOut()}>
+          <button className="btn-secondary logout-btn" onClick={onSignOut}>
             <LogOut size={18} /> Sign Out
           </button>
         ) : (
@@ -134,6 +132,12 @@ function App() {
 
   const toggleTheme = () => setTheme(prev => prev === 'dark' ? 'light' : 'dark');
 
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    setSession(null);
+    setView('home');
+  };
+
   console.log('Current view:', view);
 
   // Mouse tracking for subtle parallax
@@ -181,6 +185,7 @@ function App() {
         session={session} 
         theme={theme}
         toggleTheme={toggleTheme}
+        onSignOut={handleSignOut}
       />
       
       <AnimatePresence mode="wait">

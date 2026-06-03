@@ -222,20 +222,8 @@ app.MapPost("/api/audit/batch", async ([FromBody] BatchAuditRequest request) =>
     double maleApprovalRate = maleResults.Count > 0 ? (double)maleResults.Count(r => r.Approved) / maleResults.Count : 0;
     double femaleApprovalRate = femaleResults.Count > 0 ? (double)femaleResults.Count(r => r.Approved) / femaleResults.Count : 0;
 
-    // Disparate Impact Ratio (DI) - Safe calculation to avoid division by zero (Infinity/NaN)
-    double disparateImpact = 1.0;
-    if (maleApprovalRate > 0)
-    {
-        disparateImpact = femaleApprovalRate / maleApprovalRate;
-    }
-    else if (femaleApprovalRate > 0)
-    {
-        disparateImpact = 2.0; // High default ratio if male rate is 0 but female rate is positive
-    }
-    else
-    {
-        disparateImpact = 1.0; // Perfect parity if both are 0
-    }
+    double disparateImpact = CalculateDisparateImpact(femaleApprovalRate, maleApprovalRate);
+    double fairnessScore = CalculateFairnessScore(disparateImpact);
 
     var report = new
     {
@@ -245,7 +233,7 @@ app.MapPost("/api/audit/batch", async ([FromBody] BatchAuditRequest request) =>
             totalProcessed = count,
             overallApprovalRate = (double)totalApproved / count,
             biasDetected = disparateImpact < 0.8 || disparateImpact > 1.25,
-            fairnessScore = Math.Round(disparateImpact * 100, 2)
+            fairnessScore = Math.Round(fairnessScore, 2)
         },
         metrics = new
         {
@@ -295,14 +283,14 @@ app.MapPost("/api/audit/document", ([FromBody] DocumentAuditRequest request) =>
     var approvedCount = applicants.Count(a => a.Approved);
     double approvalRate = (double)approvedCount / total;
 
-    // Disparate Impact calculation
+    // Disparate Impact compares protected-group approval rate against the reference group.
     var maleApplicants = applicants.Where(a => a.Gender.Equals("Male", StringComparison.OrdinalIgnoreCase)).ToList();
     var femaleApplicants = applicants.Where(a => a.Gender.Equals("Female", StringComparison.OrdinalIgnoreCase)).ToList();
 
     double maleApprovalRate = maleApplicants.Count > 0 ? (double)maleApplicants.Count(a => a.Approved) / maleApplicants.Count : 0;
     double femaleApprovalRate = femaleApplicants.Count > 0 ? (double)femaleApplicants.Count(a => a.Approved) / femaleApplicants.Count : 0;
 
-    double disparateImpact = maleApprovalRate > 0 ? femaleApprovalRate / maleApprovalRate : 1.0;
+    double disparateImpact = CalculateDisparateImpact(femaleApprovalRate, maleApprovalRate);
 
     // Regional analysis
     var regionalDisparity = applicants.GroupBy(a => a.Location)
@@ -467,6 +455,22 @@ AuditResult RunAuditSimulation(SyntheticApplicant applicant, BiasSettings biasSe
     if (applicant.DeviceType.Contains("Infinix") || applicant.DeviceType.Contains("Tecno")) score -= 10;
 
     return new AuditResult(applicant, score >= 50, score);
+}
+
+double CalculateDisparateImpact(double protectedGroupApprovalRate, double referenceGroupApprovalRate)
+{
+    if (referenceGroupApprovalRate > 0)
+    {
+        return protectedGroupApprovalRate / referenceGroupApprovalRate;
+    }
+
+    return protectedGroupApprovalRate > 0 ? 2.0 : 1.0;
+}
+
+double CalculateFairnessScore(double disparateImpact)
+{
+    var parityDistance = Math.Abs(1.0 - disparateImpact);
+    return Math.Clamp(100.0 - (parityDistance * 100.0), 0.0, 100.0);
 }
 
 // Models

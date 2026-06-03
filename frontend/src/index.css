@@ -91,6 +91,22 @@ body {
 .light .nav-links button.active {
   color: var(--text-primary);
 }
+.theme-toggle-btn {
+  background-color: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+}
+.theme-toggle-btn:hover {
+  background-color: rgba(255, 255, 255, 0.14);
+}
+.light .theme-toggle-btn {
+  background-color: #ffffff;
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-sm);
+}
+.light .theme-toggle-btn:hover {
+  background-color: var(--bg-tertiary);
+}
 .light .feature-card {
   background: var(--bg-secondary);
   border: 2px solid var(--border-color);

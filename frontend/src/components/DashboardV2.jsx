@@ -368,7 +368,7 @@ const DashboardV2 = () => {
         {/* TAB 1: BATCH AUDIT */}
         {activeTab === 'batch' && (
           <>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1rem', gap: '0.8rem' }}>
+            <div className="batch-actions">
               {batchResult && (
                 <button
                   className="btn-audit"
@@ -461,6 +461,7 @@ const DashboardV2 = () => {
                     <h3 style={{ fontSize: '1.1rem' }}>Detailed Audit Log (Sample of 10 Cases)</h3>
                     <Search size={20} color="#888" />
                   </div>
+                  <div className="audit-table-wrap">
                   <table className="audit-table">
                     <thead>
                       <tr>
@@ -497,6 +498,7 @@ const DashboardV2 = () => {
                       ))}
                     </tbody>
                   </table>
+                  </div>
                 </div>
               </>
             )}
