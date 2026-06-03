@@ -47,7 +47,7 @@
   --accent-gradient: linear-gradient(135deg, #7462f3 0%, #7462f3 100%);
 
   --border-color: #333333; /* Dark mode edges */
-  --glass-bg: #111111;
+  --glass-bg: rgba(17, 17, 17, 0.7);
   --glass-border: #333333;
 
   --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
@@ -69,23 +69,36 @@
   --text-muted: #8e8e93;
 
   --border-color: #e5e5e7; /* Clean edges border */
-  --glass-bg: #ffffff;
+  --glass-bg: rgba(255, 255, 255, 0.7);
   --glass-border: #e5e5e7;
 }
 
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-
+/* Base resets that dynamically follow theme */
 body {
   background-color: var(--bg-primary);
   color: var(--text-primary);
   font-family: var(--font-family);
-  line-height: 1.5;
-  -webkit-font-smoothing: antialiased;
-  overflow-x: hidden;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.light a, .light button, .light p, .light h1, .light h2, .light h3, .light h4, .light span, .light label {
+  color: var(--text-primary);
+}
+
+.light .nav-links button {
+  color: var(--text-secondary);
+}
+.light .nav-links button.active {
+  color: var(--text-primary);
+}
+.light .feature-card {
+  background: var(--bg-secondary);
+  border: 2px solid var(--border-color);
+}
+.light input, .light select {
+  background-color: var(--bg-primary) !important;
+  border-color: var(--border-color) !important;
+  color: var(--text-primary) !important;
 }
 
 a {
