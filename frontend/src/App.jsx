@@ -12,7 +12,7 @@ import demographicsIcon from './assets/demographics.png';
 import metricsIcon from './assets/metrics.png';
 import localizedIcon from './assets/localized.png';
 
-const Navbar = ({ currentView, setView, session }) => (
+const Navbar = ({ currentView, setView, session, theme, toggleTheme }) => (
   <nav className="navbar">
     <div className="container nav-content">
       <div className="logo" onClick={() => setView('home')} style={{ cursor: 'pointer' }}>
@@ -22,6 +22,26 @@ const Navbar = ({ currentView, setView, session }) => (
       <div className="nav-links">
         <button onClick={() => setView('home')} className={currentView === 'home' ? 'active' : ''}>
           Features
+        </button>
+        <button 
+          onClick={toggleTheme} 
+          className="theme-toggle-btn" 
+          title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} Mode`}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '8px',
+            borderRadius: '50%',
+            backgroundColor: 'rgba(255, 255, 255, 0.08)',
+            border: 'none',
+            color: 'inherit',
+            cursor: 'pointer',
+            fontSize: '1rem',
+            transition: 'background-color 0.2s'
+          }}
+        >
+          {theme === 'dark' ? '☀️' : '🌙'}
         </button>
         {session ? (
           <button className="btn-secondary logout-btn" onClick={() => supabase.auth.signOut()}>
@@ -104,6 +124,15 @@ const Stardust = () => {
 function App() {
   const [view, setView] = useState('home');
   const [session, setSession] = useState(null);
+  const [theme, setTheme] = useState(() => localStorage.getItem('leba_theme') || 'dark');
+
+  // Sync theme class with document element
+  useEffect(() => {
+    document.documentElement.className = theme;
+    localStorage.setItem('leba_theme', theme);
+  }, [theme]);
+
+  const toggleTheme = () => setTheme(prev => prev === 'dark' ? 'light' : 'dark');
 
   console.log('Current view:', view);
 
@@ -146,7 +175,13 @@ function App() {
 
   return (
     <div className="app">
-      <Navbar currentView={view} setView={view === 'auth' ? setView : (v) => v === 'dashboard' ? handleDashboardAccess() : setView(v)} session={session} />
+      <Navbar 
+        currentView={view} 
+        setView={view === 'auth' ? setView : (v) => v === 'dashboard' ? handleDashboardAccess() : setView(v)} 
+        session={session} 
+        theme={theme}
+        toggleTheme={toggleTheme}
+      />
       
       <AnimatePresence mode="wait">
         {view === 'home' && (

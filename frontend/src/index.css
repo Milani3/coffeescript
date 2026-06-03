@@ -34,11 +34,11 @@
 }
 
 :root {
-  --bg-primary: #030303;
-  --bg-secondary: #0a0a0a;
-  --bg-tertiary: #111111;
+  --bg-primary: #000000; /* Main page background */
+  --bg-secondary: #111111; /* Card / padding background */
+  --bg-tertiary: #1c1c1e;
 
-  --text-primary: #ffffff;
+  --text-primary: #ffffff; /* Dark mode text is white */
   --text-secondary: #a1a1aa;
   --text-muted: #71717a;
 
@@ -46,15 +46,31 @@
   --accent-secondary: #7462f3;
   --accent-gradient: linear-gradient(135deg, #7462f3 0%, #7462f3 100%);
 
-  --border-color: rgba(255, 255, 255, 0.1);
-  --glass-bg: rgba(255, 255, 255, 0.03);
-  --glass-border: rgba(255, 255, 255, 0.08);
+  --border-color: #333333; /* Dark mode edges */
+  --glass-bg: #111111;
+  --glass-border: #333333;
 
   --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
   --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
   --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
 
   --font-family: 'Causten', system-ui, -apple-system, sans-serif;
+  --card-radius: 24px; /* Well rounded corners */
+}
+
+/* Apple iOS Light Mode System */
+.light {
+  --bg-primary: #f2f2f7; /* Light iOS page background */
+  --bg-secondary: #ffffff; /* Light mode padding/card background is white */
+  --bg-tertiary: #e5e5ea;
+
+  --text-primary: #1c1c1e; /* Light mode text is dark */
+  --text-secondary: #5c5c60;
+  --text-muted: #8e8e93;
+
+  --border-color: #e5e5e7; /* Clean edges border */
+  --glass-bg: #ffffff;
+  --glass-border: #e5e5e7;
 }
 
 * {
