@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { 
   LayoutDashboard, 
@@ -8,11 +8,15 @@ import {
   Search, 
   Bell, 
   Settings,
-  MoreVertical,
   CheckCircle2,
   XCircle,
   Smartphone,
-  MapPin
+  MapPin,
+  Brain,
+  FileText,
+  Download,
+  Upload,
+  ArrowRight
 } from 'lucide-react';
 import './DashboardV2.css';
 
@@ -46,6 +50,14 @@ const DashboardV2 = () => {
 
   // History States
   const [historyList, setHistoryList] = useState([]);
+
+  // AI Doc Auditor States
+  const [docFile, setDocFile] = useState(null);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [isDocAuditing, setIsDocAuditing] = useState(false);
+  const [docAuditResult, setDocAuditResult] = useState(null);
+  const [docError, setDocError] = useState(null);
+  const fileInputRef = useRef(null);
 
   const API_URL = import.meta.env.VITE_API_URL || '';
 
@@ -142,6 +154,96 @@ const DashboardV2 = () => {
     runBatchAudit(); 
   }, []);
 
+  // --- What-If Importer ---
+  const importToSimulator = (item) => {
+    setFormData({
+      name: item.applicant.id,
+      income: Math.round(item.applicant.income),
+      creditScore: item.applicant.creditScore || 650,
+      location: item.applicant.location,
+      gender: item.applicant.gender,
+      criminalRecord: item.applicant.criminalRecord || false
+    });
+    setSingleResult(null);
+    setActiveTab('single');
+  };
+
+  // --- Export Batch Report as JSON ---
+  const exportBatchReport = () => {
+    if (!batchResult) return;
+    const blob = new Blob([JSON.stringify(batchResult, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `leba-batch-report-${new Date().toISOString().slice(0,10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // --- Parse uploaded CSV or JSON file ---
+  const parseFileToApplicants = (text, fileName) => {
+    if (fileName.endsWith('.json')) {
+      return JSON.parse(text);
+    }
+    // CSV parsing (Name,Income,CreditScore,Location,Gender,DeviceType,Approved)
+    const lines = text.trim().split('\n');
+    const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+    return lines.slice(1).map(line => {
+      const vals = line.split(',').map(v => v.trim());
+      const obj = {};
+      headers.forEach((h, i) => { obj[h] = vals[i]; });
+      return {
+        name: obj.name || 'Unknown',
+        income: parseFloat(obj.income) || 0,
+        creditScore: parseInt(obj.creditscore) || 600,
+        location: obj.location || 'Lagos',
+        gender: obj.gender || 'Male',
+        deviceType: obj.devicetype || 'Redmi Note',
+        approved: (obj.approved || '').toLowerCase() === 'true'
+      };
+    });
+  };
+
+  // --- Run AI Document Audit ---
+  const runDocumentAudit = async (file) => {
+    setIsDocAuditing(true);
+    setDocAuditResult(null);
+    setDocError(null);
+    try {
+      const text = await file.text();
+      const applicants = parseFileToApplicants(text, file.name);
+      const response = await fetch(`${API_URL}/api/audit/document`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ applicants })
+      });
+      if (!response.ok) throw new Error(`Server error: ${response.status}`);
+      const data = await response.json();
+      setDocAuditResult(data);
+      saveAuditToHistory(
+        'AI Doc Audit',
+        `Uploaded '${file.name}' (${applicants.length} records). Bias Index: ${data.summary.biasIndex}. Disparate Impact: ${data.summary.disparateImpactRatio}.`,
+        data.summary
+      );
+    } catch (err) {
+      setDocError(err.message);
+    } finally {
+      setIsDocAuditing(false);
+    }
+  };
+
+  const handleFileDrop = (e) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    const file = e.dataTransfer.files[0];
+    if (file) { setDocFile(file); runDocumentAudit(file); }
+  };
+
+  const handleFileSelect = (e) => {
+    const file = e.target.files[0];
+    if (file) { setDocFile(file); runDocumentAudit(file); }
+  };
+
   // Reusable Bar Chart Component
   const BarChart = ({ data, labelKey, valueKey, color = "#7462f3" }) => {
     if (!data || data.length === 0) {
@@ -193,6 +295,9 @@ const DashboardV2 = () => {
         <div className={`side-icon ${activeTab === 'single' ? 'active' : ''}`} onClick={() => setActiveTab('single')} title="Single Applicant Simulator">
           <ShieldCheck size={24} />
         </div>
+        <div className={`side-icon ${activeTab === 'ai-audit' ? 'active' : ''}`} onClick={() => setActiveTab('ai-audit')} title="AI Document Auditor">
+          <Brain size={24} />
+        </div>
         <div className={`side-icon ${activeTab === 'history' ? 'active' : ''}`} onClick={() => setActiveTab('history')} title="Audit History Logs">
           <Users size={24} />
         </div>
@@ -211,8 +316,11 @@ const DashboardV2 = () => {
             <button className={`tab-btn ${activeTab === 'single' ? 'active' : ''}`} onClick={() => setActiveTab('single')}>
               Single Simulator
             </button>
+            <button className={`tab-btn ${activeTab === 'ai-audit' ? 'active' : ''}`} onClick={() => setActiveTab('ai-audit')}>
+              AI Doc Auditor
+            </button>
             <button className={`tab-btn ${activeTab === 'history' ? 'active' : ''}`} onClick={() => setActiveTab('history')}>
-              Audit History ({historyList.length})
+              History ({historyList.length})
             </button>
           </div>
         </header>
@@ -260,9 +368,18 @@ const DashboardV2 = () => {
         {/* TAB 1: BATCH AUDIT */}
         {activeTab === 'batch' && (
           <>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1rem', gap: '0.8rem' }}>
+              {batchResult && (
+                <button
+                  className="btn-audit"
+                  onClick={exportBatchReport}
+                  style={{ background: 'transparent', border: '2px solid var(--border-color)', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+                >
+                  <Download size={16} /> Export JSON
+                </button>
+              )}
               <button className="btn-audit" onClick={runBatchAudit} disabled={isBatchAuditing}>
-                {isBatchAuditing ? 'Auditing Batch...' : 'Run New Batch Audit (100 Cases)'}
+                {isBatchAuditing ? 'Auditing...' : 'Run New Batch Audit (100 Cases)'}
               </button>
             </div>
 
@@ -353,6 +470,7 @@ const DashboardV2 = () => {
                         <th>GENDER</th>
                         <th>DEVICE</th>
                         <th>STATUS</th>
+                        <th>WHAT-IF</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -366,6 +484,14 @@ const DashboardV2 = () => {
                           <td>
                             <span className={`status-dot ${item.approved ? 'status-approved' : 'status-denied'}`}></span>
                             {item.approved ? 'Approved' : 'Rejected'}
+                          </td>
+                          <td>
+                            <button
+                              onClick={() => importToSimulator(item)}
+                              style={{ fontSize: '0.7rem', padding: '0.25rem 0.5rem', borderRadius: '6px', backgroundColor: '#7462f3', color: '#fff', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+                            >
+                              <ArrowRight size={12} /> Sim
+                            </button>
                           </td>
                         </tr>
                       ))}
@@ -543,7 +669,136 @@ const DashboardV2 = () => {
           </div>
         )}
 
-        {/* TAB 3: AUDIT HISTORY LOG */}
+        {/* TAB 3: AI DOC AUDITOR */}
+        {activeTab === 'ai-audit' && (
+          <div>
+            {/* Dropzone */}
+            <div
+              className={`doc-dropzone ${isDragOver ? 'drag-over' : ''}`}
+              onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
+              onDragLeave={() => setIsDragOver(false)}
+              onDrop={handleFileDrop}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".csv,.json,.txt"
+                style={{ display: 'none' }}
+                onChange={handleFileSelect}
+              />
+              <Upload size={40} style={{ color: '#7462f3', marginBottom: '1rem' }} />
+              <h3 style={{ fontSize: '1.1rem', marginBottom: '0.5rem' }}>Drop your applicant dataset here</h3>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
+                Accepts <strong>.csv</strong>, <strong>.json</strong> files with columns: Name, Income, CreditScore, Location, Gender, DeviceType, Approved
+              </p>
+              {docFile && (
+                <div style={{ marginTop: '1rem', padding: '0.5rem 1rem', background: 'rgba(116,98,243,0.15)', borderRadius: '8px', border: '1px solid #7462f3', fontSize: '0.85rem' }}>
+                  <FileText size={14} style={{ marginRight: 6 }} />
+                  {docFile.name}
+                </div>
+              )}
+            </div>
+
+            {/* Sample CSV hint */}
+            <div style={{ marginTop: '1rem', padding: '0.8rem 1rem', background: 'var(--bg-secondary)', borderRadius: '12px', border: '2px solid var(--border-color)', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+              <strong style={{ color: 'var(--text-primary)' }}>Sample CSV format:</strong>
+              <pre style={{ marginTop: '0.4rem', fontSize: '0.75rem', overflowX: 'auto' }}>
+{`Name,Income,CreditScore,Location,Gender,DeviceType,Approved
+Ade Bello,250000,720,Lagos,Male,iPhone,true
+Fatima Sule,80000,410,Kano,Female,Tecno Spark,false`}
+              </pre>
+            </div>
+
+            {isDocAuditing && (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '3rem', gap: '1rem' }}>
+                <div className="status-dot status-approved animate-pulse" style={{ width: 36, height: 36 }}></div>
+                <p style={{ color: 'var(--text-secondary)' }}>Analysing document for bias patterns...</p>
+              </div>
+            )}
+
+            {docError && (
+              <div style={{ marginTop: '1rem', background: 'rgba(239,68,68,0.1)', color: '#ef4444', padding: '1rem', borderRadius: '12px', border: '1px solid #ef4444' }}>
+                <strong>Error:</strong> {docError}
+              </div>
+            )}
+
+            {docAuditResult && !isDocAuditing && (
+              <div style={{ marginTop: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
+
+                {/* KPI Row */}
+                <div className="kpi-grid">
+                  <div className="kpi-card">
+                    <label>Records Processed</label>
+                    <h2>{docAuditResult.summary.totalProcessed}</h2>
+                    <div className="kpi-trend trend-up">Uploaded Dataset</div>
+                  </div>
+                  <div className="kpi-card">
+                    <label>Approval Rate</label>
+                    <h2>{docAuditResult.summary.overallApprovalRate}%</h2>
+                    <div className="kpi-trend trend-up">Overall</div>
+                  </div>
+                  <div className="kpi-card">
+                    <label>Disparate Impact</label>
+                    <h2>{docAuditResult.summary.disparateImpactRatio}</h2>
+                    <div className={`kpi-trend ${docAuditResult.summary.disparateImpactRatio < 0.8 ? 'trend-down' : 'trend-up'}`}>
+                      {docAuditResult.summary.disparateImpactRatio < 0.8 ? 'Below Threshold' : 'Healthy'}
+                    </div>
+                  </div>
+                  <div className="kpi-card">
+                    <label>Bias Index</label>
+                    <h2>{docAuditResult.summary.biasIndex}</h2>
+                    <div className={`kpi-trend ${docAuditResult.summary.biasIndex > 0.2 ? 'trend-down' : 'trend-up'}`}>
+                      {docAuditResult.summary.biasIndex > 0.2 ? 'High Bias' : 'Low Bias'}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Compliance Checklist */}
+                <div className="chart-card">
+                  <h3 style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <ShieldCheck size={18} /> Regulatory Compliance Checklist (CBN / NDPR)
+                  </h3>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                    {docAuditResult.complianceChecklist.map((item, i) => (
+                      <div key={i} className="compliance-item">
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                          <span className={`compliance-badge compliance-${item.status.toLowerCase()}`}>
+                            {item.status === 'Pass' ? <CheckCircle2 size={14} /> : item.status === 'Fail' ? <XCircle size={14} /> : '⚠️'}
+                            {item.status}
+                          </span>
+                          <strong style={{ fontSize: '0.88rem' }}>{item.criterion}</strong>
+                        </div>
+                        <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '0.3rem', paddingLeft: '1.8rem' }}>{item.detail}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* AI Recommendations */}
+                <div className="chart-card">
+                  <h3 style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <Brain size={18} /> AI Audit Recommendations
+                  </h3>
+                  {docAuditResult.recommendations.length === 0 ? (
+                    <p style={{ color: '#10b981', fontSize: '0.9rem' }}>✅ No significant bias patterns detected in this dataset.</p>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+                      {docAuditResult.recommendations.map((rec, i) => (
+                        <div key={i} style={{ padding: '0.8rem 1rem', borderRadius: '10px', background: 'rgba(239,68,68,0.05)', border: '1px solid rgba(239,68,68,0.2)', fontSize: '0.85rem', color: 'var(--text-primary)', lineHeight: '1.6' }}>
+                          <span style={{ color: '#ef4444', fontWeight: 'bold' }}>⚠ </span>{rec}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* TAB 4: AUDIT HISTORY LOG */}
         {activeTab === 'history' && (
           <div className="audit-history-panel glass" style={{ padding: '1.5rem', borderRadius: '16px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>

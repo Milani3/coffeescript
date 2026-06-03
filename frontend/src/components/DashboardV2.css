@@ -285,6 +285,79 @@
 
 /* General simulator styling overrides */
 .single-sim-layout .card {
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  border: 2px solid var(--border-color);
 }
 
+/* ── AI Doc Auditor Dropzone ─────────────────────────── */
+.doc-dropzone {
+  border: 2px dashed var(--border-color);
+  border-radius: var(--card-radius);
+  background: var(--bg-secondary);
+  padding: 3rem 2rem;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  color: var(--text-primary);
+}
+
+.doc-dropzone:hover {
+  border-color: #7462f3;
+  background: rgba(116, 98, 243, 0.05);
+}
+
+.doc-dropzone.drag-over {
+  border-color: #7462f3;
+  background: rgba(116, 98, 243, 0.12);
+  transform: scale(1.01);
+}
+
+/* ── Compliance Checklist ────────────────────────────── */
+.compliance-item {
+  padding: 0.7rem 0.8rem;
+  border-radius: 10px;
+  background: var(--bg-primary);
+  border: 2px solid var(--border-color);
+  transition: border-color 0.2s;
+}
+
+.compliance-item:hover {
+  border-color: #7462f3;
+}
+
+.compliance-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.25rem 0.6rem;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+
+.compliance-pass   { background: rgba(16,185,129,0.15); color: #10b981; }
+.compliance-fail   { background: rgba(239,68,68,0.15);  color: #ef4444; }
+.compliance-warning { background: rgba(251,191,36,0.15); color: #fbbf24; }
+
+/* ── Global settings card border fix ────────────────── */
+.global-settings-card {
+  border: 2px solid var(--border-color);
+  border-radius: var(--card-radius);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+/* ── Audit history borders follow theme ──────────────── */
+.audit-history-panel {
+  border: 2px solid var(--border-color);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+/* Light-mode table row highlight */
+.light .audit-table tr:hover td {
+  background: var(--bg-tertiary);
+}
