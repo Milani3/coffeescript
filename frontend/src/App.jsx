@@ -136,6 +136,8 @@ function App() {
     await supabase.auth.signOut();
     setSession(null);
     setView('home');
+    window.history.replaceState(null, '', window.location.pathname);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   console.log('Current view:', view);
