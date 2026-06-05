@@ -574,6 +574,16 @@ const DashboardV2 = () => {
                 </div>
 
                 <div className="input-group">
+                  <label style={{ display: 'block', marginBottom: '0.4rem', color: '#ccc' }}>Loan Amount (₦)</label>
+                  <input 
+                    type="number" 
+                    value={formData.loanAmount} 
+                    onChange={(e) => setFormData({ ...formData, loanAmount: parseInt(e.target.value) || 0 })}
+                    style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1px solid #444', backgroundColor: '#111', color: '#fff' }}
+                  />
+                </div>
+
+                <div className="input-group">
                   <label style={{ display: 'block', marginBottom: '0.4rem', color: '#ccc' }}>Location (State)</label>
                   <select 
                     value={formData.location} 
@@ -755,7 +765,7 @@ const DashboardV2 = () => {
               <Upload size={40} style={{ color: '#7462f3', marginBottom: '1rem' }} />
               <h3 style={{ fontSize: '1.1rem', marginBottom: '0.5rem' }}>Drop your applicant dataset here</h3>
               <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
-                Accepts <strong>.csv</strong>, <strong>.json</strong> files with columns: Name, Income, CreditScore, Location, Gender, DeviceType, Approved
+                Accepts <strong>.csv</strong>, <strong>.json</strong> files with columns: Name, Income, LoanAmount, CreditScore, Location, Gender, DeviceType, Approved
               </p>
               {docFile && (
                 <div style={{ marginTop: '1rem', padding: '0.5rem 1rem', background: 'rgba(116,98,243,0.15)', borderRadius: '8px', border: '1px solid #7462f3', fontSize: '0.85rem' }}>
@@ -769,9 +779,9 @@ const DashboardV2 = () => {
             <div style={{ marginTop: '1rem', padding: '0.8rem 1rem', background: 'var(--bg-secondary)', borderRadius: '12px', border: '2px solid var(--border-color)', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
               <strong style={{ color: 'var(--text-primary)' }}>Sample CSV format:</strong>
               <pre style={{ marginTop: '0.4rem', fontSize: '0.75rem', overflowX: 'auto' }}>
-{`Name,Income,CreditScore,Location,Gender,DeviceType,Approved
-Ade Bello,250000,720,Lagos,Male,iPhone,true
-Fatima Sule,80000,410,Kano,Female,Tecno Spark,false`}
+{`Name,Income,LoanAmount,CreditScore,Location,Gender,DeviceType,Approved
+Ade Bello,250000,400000,720,Lagos,Male,iPhone,true
+Fatima Sule,80000,300000,410,Kano,Female,Tecno Spark,false`}
               </pre>
             </div>
 

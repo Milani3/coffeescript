@@ -393,6 +393,17 @@ app.MapPost("/api/audit/document", ([FromBody] DocumentAuditRequest request) =>
         complianceChecklist.Add(new { criterion = "No Economic Proxy Bias", status = "Pass", detail = "No structural proxy bias detected from mobile hardware data." });
     }
 
+    var highLoanBurden = applicants.Where(a => a.Income > 0 && a.LoanAmount / a.Income > 3).ToList();
+    if (highLoanBurden.Count > 0)
+    {
+        recommendations.Add($"{highLoanBurden.Count} applicant(s) requested loan amounts above three times their monthly income. Review affordability because loan amount should be measured against income and credit score.");
+        complianceChecklist.Add(new { criterion = "Loan Affordability Check", status = "Warning", detail = "Some requested loan amounts are high compared with applicant income." });
+    }
+    else
+    {
+        complianceChecklist.Add(new { criterion = "Loan Affordability Check", status = "Pass", detail = "Requested loan amounts are within a reasonable range compared with income." });
+    }
+
     complianceChecklist.Add(new { criterion = "NDPR Consent Compliance", status = "Pass", detail = "Applicant document records contain active consent markers." });
 
     var report = new
