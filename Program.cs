@@ -1,5 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
 using Supabase;
+using System.Net.Http.Headers;
+using System.Text;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -7,6 +10,7 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+builder.Services.AddHttpClient();
 
 // Configure CORS
 // • Development  → allow any origin (convenient for local Vite dev server)
@@ -86,7 +90,7 @@ if (Directory.Exists(distPath))
 }
 app.MapGet("/api", () => Results.Ok(new { message = "LEBA API is active (C# Edition)" }));
 
-app.MapPost("/api/predict", async ([FromBody] PredictionRequest request) =>
+app.MapPost("/api/predict", async ([FromBody] PredictionRequest request, IHttpClientFactory httpClientFactory) =>
 {
     try
     {
@@ -134,6 +138,23 @@ app.MapPost("/api/predict", async ([FromBody] PredictionRequest request) =>
             factors.Add(new Factor("Poor Credit History", -10));
         }
 
+        var monthlyRepaymentRatio = formData.Income > 0 ? formData.LoanAmount / formData.Income : 10;
+        if (monthlyRepaymentRatio <= 1.5)
+        {
+            score += 20;
+            factors.Add(new Factor("Affordable Loan Amount", 20));
+        }
+        else if (monthlyRepaymentRatio <= 3)
+        {
+            score += 5;
+            factors.Add(new Factor("Moderate Loan Amount", 5));
+        }
+        else
+        {
+            score -= 25;
+            factors.Add(new Factor("Loan Amount Too High For Income", -25));
+        }
+
         // 2. Bias Injection Logic
         
         // Location Bias
@@ -162,17 +183,33 @@ app.MapPost("/api/predict", async ([FromBody] PredictionRequest request) =>
             factors.Add(new Factor("Criminal Record Penalty", -penalty));
         }
 
-        bool approved = score >= 50;
+        int auditScore = Math.Clamp(score, 0, 100);
+        var hfPrediction = await GetHuggingFacePrediction(formData, httpClientFactory);
+        int finalScore = hfPrediction.Available
+            ? (int)Math.Round((auditScore + hfPrediction.ApprovalScore) / 2.0)
+            : auditScore;
+        bool approved = finalScore >= 50;
+        string explanation = BuildDecisionExplanation(formData, approved, finalScore, auditScore, factors, hfPrediction);
 
         var results = new
         {
             timestamp = DateTime.UtcNow.ToString("o"),
             approved,
-            score = Math.Clamp(score, 0, 100),
+            score = Math.Clamp(finalScore, 0, 100),
             factors,
+            explanation,
+            aiPrediction = new
+            {
+                enabled = hfPrediction.Available,
+                approved = hfPrediction.Approved,
+                confidence = Math.Round(hfPrediction.Confidence, 2),
+                approvalScore = Math.Round(hfPrediction.ApprovalScore, 2),
+                model = hfPrediction.Model,
+                note = hfPrediction.Note
+            },
             metadata = new
             {
-                model = "LEBA-Audit-v1",
+                model = hfPrediction.Available ? "LEBA-HF-Audit-v1" : "LEBA-Audit-v1",
                 region = "Nigeria-Localized"
             }
         };
@@ -385,6 +422,8 @@ List<SyntheticApplicant> GenerateApplicants(int count)
     var random = new Random();
     var states = new[] { "Lagos", "Abuja", "Kano", "Rivers", "Delta", "Enugu", "Kaduna" };
     var genders = new[] { "Male", "Female" };
+    var firstNames = new[] { "Adebayo", "Chioma", "Fatima", "Tunde", "Aisha", "Emeka", "Zainab", "Ifeoma", "Musa", "Adaeze", "Chinedu", "Suleiman", "Temitope", "Blessing" };
+    var lastNames = new[] { "Bello", "Okafor", "Adeyemi", "Eze", "Ibrahim", "Afolayan", "Nwosu", "Garba", "Oladipo", "Usman", "Onyeka", "Sani", "Balogun", "Okonkwo" };
     var banks = new[] { "GTB", "Zenith", "Kuda", "Opay", "FirstBank" };
     var lowEndDevices = new[] { "Infinix Note", "Tecno Spark" };
     var highEndDevices = new[] { "iPhone", "Samsung S22" };
@@ -423,9 +462,13 @@ List<SyntheticApplicant> GenerateApplicants(int count)
             deviceType = all[random.Next(all.Length)];
         }
 
+        var loanAmount = Math.Round(income * (random.NextDouble() * 3.6 + 0.6), 0);
+
         return new SyntheticApplicant(
             Id: $"APP-{1000 + i}",
+            Name: $"{firstNames[random.Next(firstNames.Length)]} {lastNames[random.Next(lastNames.Length)]}",
             Income: income,
+            LoanAmount: loanAmount,
             CreditScore: random.Next(300, 850),
             Location: location,
             Gender: genders[random.Next(genders.Length)],
@@ -443,6 +486,10 @@ AuditResult RunAuditSimulation(SyntheticApplicant applicant, BiasSettings biasSe
     // Core Logic
     if (applicant.Income > 300000) score += 40; else score += 15;
     if (applicant.CreditScore > 650) score += 30; else score -= 10;
+    var loanRatio = applicant.Income > 0 ? applicant.LoanAmount / applicant.Income : 10;
+    if (loanRatio <= 1.5) score += 20;
+    else if (loanRatio <= 3) score += 5;
+    else score -= 25;
 
     // Inject Bias
     if (biasSettings.GenderBias && applicant.Gender == "Female") score -= 15;
@@ -475,12 +522,152 @@ double CalculateFairnessScore(double disparateImpact)
     return Math.Clamp(parityRatio * 100.0, 0.0, 100.0);
 }
 
+async Task<HuggingFacePrediction> GetHuggingFacePrediction(FormData formData, IHttpClientFactory httpClientFactory)
+{
+    var accessToken = Environment.GetEnvironmentVariable("HF_ACCESS_TOKEN");
+    if (string.IsNullOrWhiteSpace(accessToken))
+    {
+        return new HuggingFacePrediction(false, false, 0, 0, "Not configured", "HF_ACCESS_TOKEN is not set.");
+    }
+
+    var model = Environment.GetEnvironmentVariable("HF_MODEL");
+    if (string.IsNullOrWhiteSpace(model))
+    {
+        model = "facebook/bart-large-mnli";
+    }
+
+    var applicantProfile =
+        $"Loan applicant in Nigeria. Monthly income: {formData.Income:N0} naira. " +
+        $"Requested loan amount: {formData.LoanAmount:N0} naira. " +
+        $"Credit score: {formData.CreditScore}. Location: {formData.Location}. " +
+        $"Gender: {formData.Gender}. Criminal record: {(formData.CriminalRecord ? "yes" : "no")}. " +
+        "Decide if this applicant should be approved or denied for a loan.";
+
+    var payload = new
+    {
+        inputs = applicantProfile,
+        parameters = new
+        {
+            candidate_labels = new[] { "approve loan", "deny loan" }
+        },
+        options = new
+        {
+            wait_for_model = true
+        }
+    };
+
+    try
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(25));
+        var client = httpClientFactory.CreateClient();
+        using var message = new HttpRequestMessage(HttpMethod.Post, $"https://api-inference.huggingface.co/models/{model}");
+        message.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        message.Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
+
+        using var response = await client.SendAsync(message, timeout.Token);
+        var body = await response.Content.ReadAsStringAsync(timeout.Token);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            return new HuggingFacePrediction(false, false, 0, 0, model, $"Hugging Face returned {(int)response.StatusCode}.");
+        }
+
+        using var document = JsonDocument.Parse(body);
+        var root = document.RootElement;
+        if (!root.TryGetProperty("labels", out var labels) || !root.TryGetProperty("scores", out var scores))
+        {
+            return new HuggingFacePrediction(false, false, 0, 0, model, "The model response could not be read.");
+        }
+
+        double approveScore = 0;
+        double denyScore = 0;
+        for (int i = 0; i < labels.GetArrayLength(); i++)
+        {
+            var label = labels[i].GetString() ?? "";
+            var labelScore = scores[i].GetDouble();
+            if (label.Contains("approve", StringComparison.OrdinalIgnoreCase))
+            {
+                approveScore = labelScore;
+            }
+            else if (label.Contains("deny", StringComparison.OrdinalIgnoreCase))
+            {
+                denyScore = labelScore;
+            }
+        }
+
+        var approved = approveScore >= denyScore;
+        var confidence = Math.Max(approveScore, denyScore) * 100;
+        return new HuggingFacePrediction(true, approved, confidence, approveScore * 100, model, "AI model response received.");
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Hugging Face Prediction Error: {ex.Message}");
+        return new HuggingFacePrediction(false, false, 0, 0, model, "AI model was unavailable, so LEBA used the local audit score.");
+    }
+}
+
+string BuildDecisionExplanation(
+    FormData formData,
+    bool approved,
+    int finalScore,
+    int auditScore,
+    List<Factor> factors,
+    HuggingFacePrediction hfPrediction)
+{
+    var positiveFactors = factors.Where(f => f.Impact > 0).Select(f => f.Name.ToLower()).ToList();
+    var negativeFactors = factors.Where(f => f.Impact < 0).Select(f => f.Name.ToLower()).ToList();
+
+    var explanation = approved
+        ? $"The applicant was approved because the final score was {finalScore}/100, which is above the approval mark of 50."
+        : $"The applicant was denied because the final score was {finalScore}/100, which is below the approval mark of 50.";
+
+    if (positiveFactors.Count > 0)
+    {
+        explanation += $" The decision was helped by {string.Join(", ", positiveFactors)}.";
+    }
+
+    if (negativeFactors.Count > 0)
+    {
+        explanation += $" The decision was reduced by {string.Join(", ", negativeFactors)}.";
+    }
+
+    if (hfPrediction.Available)
+    {
+        explanation += hfPrediction.Approved
+            ? $" The Hugging Face model also leaned towards approval with {hfPrediction.Confidence:F1}% confidence."
+            : $" The Hugging Face model leaned towards denial with {hfPrediction.Confidence:F1}% confidence.";
+        explanation += $" LEBA combined the AI result with its audit score of {auditScore}/100.";
+    }
+    else
+    {
+        explanation += " The AI model was not available, so LEBA used the local audit score only.";
+    }
+
+    if (formData.CriminalRecord)
+    {
+        explanation += " The criminal record input also affected the decision.";
+    }
+
+    return explanation;
+}
+
 // Models
+public record HuggingFacePrediction(
+    bool Available,
+    bool Approved,
+    double Confidence,
+    double ApprovalScore,
+    string Model,
+    string Note
+);
+
 public record BatchAuditRequest(int Count, BiasSettings BiasSettings);
 public record AuditResult(SyntheticApplicant Applicant, bool Approved, int Score);
 public record SyntheticApplicant(
     string Id,
+    string Name,
     double Income,
+    double LoanAmount,
     int CreditScore,
     string Location,
     string Gender,
@@ -494,6 +681,7 @@ public record Factor(string Name, int Impact);
 
 public record FormData(
     double Income,
+    double LoanAmount,
     int CreditScore,
     string Location,
     string Gender,
@@ -514,6 +702,7 @@ public record PredictionRequest(
 public record UploadedApplicant(
     string Name,
     double Income,
+    double LoanAmount,
     int CreditScore,
     string Location,
     string Gender,

@@ -7,7 +7,6 @@ import {
   BarChart3, 
   Search, 
   Bell, 
-  Settings,
   CheckCircle2,
   XCircle,
   Smartphone,
@@ -33,6 +32,7 @@ const DashboardV2 = () => {
   const [formData, setFormData] = useState({
     name: 'Auditor Demo',
     income: 150000,
+    loanAmount: 250000,
     creditScore: 650,
     location: 'Lagos',
     gender: 'Male',
@@ -43,8 +43,8 @@ const DashboardV2 = () => {
 
   // General Settings
   const [biasSettings, setBiasSettings] = useState({
-    penalizeLocation: true,
-    genderBias: true,
+    penalizeLocation: false,
+    genderBias: false,
     strictCriminalRecord: true
   });
 
@@ -139,7 +139,7 @@ const DashboardV2 = () => {
       setSingleResult(data);
       saveAuditToHistory(
         'Single Simulation',
-        `Simulated applicant ${formData.name} (${formData.gender}, ₦${formData.income.toLocaleString()}, ${formData.location}). Decision: ${data.approved ? 'Approved' : 'Denied'} (Score: ${data.score}%).`,
+        `Simulated applicant ${formData.name} (${formData.gender}, ₦${formData.loanAmount.toLocaleString()} loan, ₦${formData.income.toLocaleString()} income, ${formData.location}). Decision: ${data.approved ? 'Approved' : 'Denied'} (Score: ${data.score}%).`,
         { name: formData.name, approved: data.approved, score: data.score }
       );
     } catch (err) {
@@ -157,8 +157,9 @@ const DashboardV2 = () => {
   // --- What-If Importer ---
   const importToSimulator = (item) => {
     setFormData({
-      name: item.applicant.id,
+      name: item.applicant.name || item.applicant.id,
       income: Math.round(item.applicant.income),
+      loanAmount: Math.round(item.applicant.loanAmount || item.applicant.income * 2),
       creditScore: item.applicant.creditScore || 650,
       location: item.applicant.location,
       gender: item.applicant.gender,
@@ -185,7 +186,7 @@ const DashboardV2 = () => {
     if (fileName.endsWith('.json')) {
       return JSON.parse(text);
     }
-    // CSV parsing (Name,Income,CreditScore,Location,Gender,DeviceType,Approved)
+    // CSV parsing (Name,Income,LoanAmount,CreditScore,Location,Gender,DeviceType,Approved)
     const lines = text.trim().split('\n');
     const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
     return lines.slice(1).map(line => {
@@ -195,6 +196,7 @@ const DashboardV2 = () => {
       return {
         name: obj.name || 'Unknown',
         income: parseFloat(obj.income) || 0,
+        loanAmount: parseFloat(obj.loanamount) || parseFloat(obj.loan_amount) || parseFloat(obj.loan) || 0,
         creditScore: parseInt(obj.creditscore) || 600,
         location: obj.location || 'Lagos',
         gender: obj.gender || 'Male',
@@ -256,7 +258,7 @@ const DashboardV2 = () => {
 
     const width = 420;
     const height = 230;
-    const margin = { top: 18, right: 18, bottom: 42, left: 48 };
+    const margin = { top: 18, right: 18, bottom: 42, left: 68 };
     const chartWidth = width - margin.left - margin.right;
     const chartHeight = height - margin.top - margin.bottom;
     const gridLines = [0, 0.25, 0.5, 0.75, 1];
@@ -282,6 +284,19 @@ const DashboardV2 = () => {
             </g>
           );
         })}
+        {data.map((_, i) => {
+          const x = margin.left + (i * barSlot) + (barSlot / 2);
+          return (
+            <line
+              key={`vertical-${i}`}
+              x1={x}
+              y1={margin.top}
+              x2={x}
+              y2={height - margin.bottom}
+              className="chart-grid-line"
+            />
+          );
+        })}
         <line
           x1={margin.left}
           y1={margin.top}
@@ -297,11 +312,11 @@ const DashboardV2 = () => {
           className="chart-axis-line"
         />
         <text
-          x={18}
+          x={24}
           y={margin.top + chartHeight / 2}
           className="chart-title-label"
           textAnchor="middle"
-          transform={`rotate(-90 18 ${margin.top + chartHeight / 2})`}
+          transform={`rotate(-90 24 ${margin.top + chartHeight / 2})`}
         >
           {yAxisLabel}
         </text>
@@ -381,39 +396,6 @@ const DashboardV2 = () => {
             </button>
           </div>
         </header>
-
-        {/* Global Settings Panel */}
-        <div className="global-settings-card glass" style={{ marginBottom: '1.5rem', padding: '1.2rem', borderRadius: '16px' }}>
-          <h3 style={{ fontSize: '1rem', marginBottom: '1rem', color: '#fff', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <Settings size={18} /> Global Bias Parameters (Model Injections)
-          </h3>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1.5rem' }}>
-            <label className="toggle-label" style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', cursor: 'pointer', color: '#ccc' }}>
-              <input 
-                type="checkbox" 
-                checked={biasSettings.penalizeLocation} 
-                onChange={(e) => setBiasSettings({ ...biasSettings, penalizeLocation: e.target.checked })} 
-              />
-              <span>Penalize States (Kano, Delta, Kaduna, Rivers)</span>
-            </label>
-            <label className="toggle-label" style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', cursor: 'pointer', color: '#ccc' }}>
-              <input 
-                type="checkbox" 
-                checked={biasSettings.genderBias} 
-                onChange={(e) => setBiasSettings({ ...biasSettings, genderBias: e.target.checked })} 
-              />
-              <span>Gender Weighting Bias (Female penalty)</span>
-            </label>
-            <label className="toggle-label" style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', cursor: 'pointer', color: '#ccc' }}>
-              <input 
-                type="checkbox" 
-                checked={biasSettings.strictCriminalRecord} 
-                onChange={(e) => setBiasSettings({ ...biasSettings, strictCriminalRecord: e.target.checked })} 
-              />
-              <span>Strict Criminal Record Penalty</span>
-            </label>
-          </div>
-        </div>
 
         {error && (
           <div style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', padding: '1.5rem', borderRadius: '16px', border: '1px solid #ef4444', marginBottom: '2rem' }}>
@@ -521,7 +503,9 @@ const DashboardV2 = () => {
                     <thead>
                       <tr>
                         <th>ID</th>
+                        <th>NAME</th>
                         <th>INCOME</th>
+                        <th>LOAN</th>
                         <th>LOCATION</th>
                         <th>GENDER</th>
                         <th>DEVICE</th>
@@ -533,7 +517,9 @@ const DashboardV2 = () => {
                       {batchResult.details.map((item, i) => (
                         <tr key={i}>
                           <td>{item.applicant.id}</td>
+                          <td>{item.applicant.name}</td>
                           <td>₦{item.applicant.income.toLocaleString()}</td>
+                          <td>₦{Number(item.applicant.loanAmount || 0).toLocaleString()}</td>
                           <td><MapPin size={14} style={{ marginRight: 4 }} />{item.applicant.location}</td>
                           <td>{item.applicant.gender}</td>
                           <td><Smartphone size={14} style={{ marginRight: 4 }} />{item.applicant.deviceType}</td>
@@ -562,11 +548,11 @@ const DashboardV2 = () => {
 
         {/* TAB 2: SINGLE APPLICANT SIMULATOR */}
         {activeTab === 'single' && (
-          <div className="single-sim-layout" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem' }}>
+          <div className="single-sim-layout" style={{ display: 'grid', gridTemplateColumns: 'minmax(320px, 0.9fr) minmax(360px, 1.1fr)', gap: '0.8rem', alignItems: 'start' }}>
             {/* Form Side */}
-            <div className="card glass simulator-section" style={{ padding: '1.5rem', borderRadius: '16px' }}>
-              <h2 className="gradient-text" style={{ fontSize: '1.3rem', marginBottom: '1.5rem' }}>Applicant Profiles</h2>
-              <div className="form-grid" style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
+            <div className="card glass simulator-section" style={{ padding: '1rem', borderRadius: '10px' }}>
+              <h2 className="gradient-text" style={{ fontSize: '1.05rem', marginBottom: '0.8rem' }}>Applicant Profile</h2>
+              <div className="form-grid compact-form-grid">
                 <div className="input-group">
                   <label style={{ display: 'block', marginBottom: '0.4rem', color: '#ccc' }}>Applicant Name</label>
                   <input 
@@ -701,10 +687,32 @@ const DashboardV2 = () => {
                     <p style={{ fontSize: '0.75rem', color: '#666', marginTop: '0.5rem' }}>Threshold for approval is 50%.</p>
                   </div>
 
+                  <div style={{ backgroundColor: '#111', border: '1px solid #222', borderRadius: '10px', padding: '1rem' }}>
+                    <h4 style={{ fontSize: '0.95rem', color: '#ccc', marginBottom: '0.6rem' }}>Why this decision was made</h4>
+                    <p style={{ fontSize: '0.86rem', color: '#aaa', lineHeight: 1.6 }}>
+                      {singleResult.explanation || 'LEBA reviewed the applicant details and produced this result based on the audit score.'}
+                    </p>
+                    {singleResult.aiPrediction && (
+                      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.8rem' }}>
+                        <span style={{ fontSize: '0.72rem', padding: '0.2rem 0.5rem', borderRadius: '6px', backgroundColor: singleResult.aiPrediction.enabled ? 'rgba(16,185,129,0.14)' : 'rgba(251,191,36,0.14)', color: singleResult.aiPrediction.enabled ? '#10b981' : '#fbbf24' }}>
+                          AI: {singleResult.aiPrediction.enabled ? 'Connected' : 'Fallback used'}
+                        </span>
+                        <span style={{ fontSize: '0.72rem', padding: '0.2rem 0.5rem', borderRadius: '6px', backgroundColor: '#222', color: '#aaa' }}>
+                          Model: {singleResult.aiPrediction.model}
+                        </span>
+                        {singleResult.aiPrediction.enabled && (
+                          <span style={{ fontSize: '0.72rem', padding: '0.2rem 0.5rem', borderRadius: '6px', backgroundColor: '#222', color: '#aaa' }}>
+                            Confidence: {Number(singleResult.aiPrediction.confidence).toFixed(1)}%
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
                   <div className="explainability-panel">
                     <h4 style={{ fontSize: '0.95rem', color: '#ccc', marginBottom: '0.8rem' }}>Algorithmic Weight Breakdowns</h4>
                     <div className="factor-list" style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
-                      {singleResult.factors.map((f, i) => (
+                      {(singleResult.factors || []).map((f, i) => (
                         <div key={i} className="factor-item" style={{ display: 'flex', justifyContent: 'space-between', padding: '0.6rem 0.8rem', backgroundColor: '#111', borderRadius: '8px', border: '1px solid #222' }}>
                           <span style={{ fontSize: '0.85rem' }}>{f.name}</span>
                           <span 

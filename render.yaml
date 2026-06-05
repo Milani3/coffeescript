@@ -24,3 +24,9 @@ services:
 
       - key: VITE_SUPABASE_ANON_KEY
         sync: false
+
+      - key: HF_ACCESS_TOKEN
+        sync: false
+
+      - key: HF_MODEL
+        value: facebook/bart-large-mnli
