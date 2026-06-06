@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { 
-  LayoutDashboard, 
-  ShieldCheck, 
-  Users, 
-  BarChart3, 
-  Search, 
-  Bell, 
+import {
+  LayoutDashboard,
+  ShieldCheck,
+  Users,
+  BarChart3,
+  Search,
+  Bell,
   CheckCircle2,
   XCircle,
   Smartphone,
@@ -16,25 +16,19 @@ import {
   Download,
   Upload,
   ArrowRight,
-  ArrowLeft
+  ChevronLeft
 } from 'lucide-react';
 import './DashboardV2.css';
 
 const DashboardV2 = () => {
-  // Tabs: 'batch', 'single', 'history'
+  // Tabs: 'batch', 'single', 'history', 'batch-full-log'
   const [activeTab, setActiveTab] = useState('batch');
-
-  // Spreadsheet Filter States
-  const [searchQuery, setSearchQuery] = useState('');
-  const [genderFilter, setGenderFilter] = useState('All');
-  const [statusFilter, setStatusFilter] = useState('All');
-  const [locationFilter, setLocationFilter] = useState('All');
 
   // Batch Audit States
   const [batchResult, setBatchResult] = useState(null);
   const [isBatchAuditing, setIsBatchAuditing] = useState(false);
   const [error, setError] = useState(null);
-  
+
   // Single Simulation States
   const [formData, setFormData] = useState({
     name: 'Auditor Demo',
@@ -65,6 +59,10 @@ const DashboardV2 = () => {
   const [docAuditResult, setDocAuditResult] = useState(null);
   const [docError, setDocError] = useState(null);
   const fileInputRef = useRef(null);
+
+  // Full Log Search/Filter
+  const [fullLogSearch, setFullLogSearch] = useState('');
+  const [fullLogFilter, setFullLogFilter] = useState('all'); // 'all', 'approved', 'denied'
 
   const API_URL = import.meta.env.VITE_API_URL || '';
 
@@ -108,7 +106,7 @@ const DashboardV2 = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ count: 100, biasSettings })
       });
-      
+
       if (!response.ok) {
         throw new Error(`Server responded with ${response.status}: ${response.statusText}`);
       }
@@ -157,8 +155,8 @@ const DashboardV2 = () => {
     }
   };
 
-  useEffect(() => { 
-    runBatchAudit(); 
+  useEffect(() => {
+    runBatchAudit();
   }, []);
 
   // --- What-If Importer ---
@@ -183,7 +181,7 @@ const DashboardV2 = () => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `leba-batch-report-${new Date().toISOString().slice(0,10)}.json`;
+    a.download = `leba-batch-report-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -251,6 +249,33 @@ const DashboardV2 = () => {
   const handleFileSelect = (e) => {
     const file = e.target.files[0];
     if (file) { setDocFile(file); runDocumentAudit(file); }
+  };
+
+  // --- Filter full log data ---
+  const getFilteredFullLog = () => {
+    if (!batchResult || !batchResult.details) return [];
+
+    let filtered = batchResult.details;
+
+    // Filter by status
+    if (fullLogFilter === 'approved') {
+      filtered = filtered.filter(item => item.approved);
+    } else if (fullLogFilter === 'denied') {
+      filtered = filtered.filter(item => !item.approved);
+    }
+
+    // Filter by search
+    if (fullLogSearch.trim()) {
+      const query = fullLogSearch.toLowerCase();
+      filtered = filtered.filter(item =>
+        item.applicant.name.toLowerCase().includes(query) ||
+        item.applicant.id.toString().includes(query) ||
+        item.applicant.location.toLowerCase().includes(query) ||
+        item.applicant.gender.toLowerCase().includes(query)
+      );
+    }
+
+    return filtered;
   };
 
   // Reusable Bar Chart Component
@@ -334,11 +359,11 @@ const DashboardV2 = () => {
           const yPos = margin.top + chartHeight - barHeight;
           return (
             <g key={i}>
-              <rect 
-                x={xPos} 
-                y={yPos} 
-                width={barWidth} 
-                height={barHeight} 
+              <rect
+                x={xPos}
+                y={yPos}
+                width={barWidth}
+                height={barHeight}
                 fill={color}
                 className="bar-rect"
               />
@@ -350,9 +375,9 @@ const DashboardV2 = () => {
               >
                 {Math.round(val * 100)}%
               </text>
-              <text 
-                x={xPos + barWidth / 2} 
-                y={height - 18} 
+              <text
+                x={xPos + barWidth / 2}
+                y={height - 18}
                 className="chart-axis-label"
                 textAnchor="middle"
               >
@@ -364,22 +389,6 @@ const DashboardV2 = () => {
       </svg>
     );
   };
-
-  const filteredDetails = (batchResult?.details || []).filter(item => {
-    const matchesSearch = searchQuery === '' || 
-      item.applicant.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.applicant.id.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    const matchesGender = genderFilter === 'All' || item.applicant.gender === genderFilter;
-    
-    const matchesStatus = statusFilter === 'All' || 
-      (statusFilter === 'Approved' && item.approved) || 
-      (statusFilter === 'Rejected' && !item.approved);
-      
-    const matchesLocation = locationFilter === 'All' || item.applicant.location === locationFilter;
-    
-    return matchesSearch && matchesGender && matchesStatus && matchesLocation;
-  });
 
   return (
     <div className="dashboard-v2">
@@ -522,51 +531,209 @@ const DashboardV2 = () => {
                     <Search size={20} color="#888" />
                   </div>
                   <div className="audit-table-wrap">
-                  <table className="audit-table">
-                    <thead>
-                      <tr>
-                        <th>ID</th>
-                        <th>NAME</th>
-                        <th>INCOME</th>
-                        <th>LOAN</th>
-                        <th>LOCATION</th>
-                        <th>GENDER</th>
-                        <th>DEVICE</th>
-                        <th>STATUS</th>
-                        <th>WHAT-IF</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {batchResult.details.map((item, i) => (
-                        <tr key={i}>
-                          <td>{item.applicant.id}</td>
-                          <td>{item.applicant.name}</td>
-                          <td>₦{item.applicant.income.toLocaleString()}</td>
-                          <td>₦{Number(item.applicant.loanAmount || 0).toLocaleString()}</td>
-                          <td><MapPin size={14} style={{ marginRight: 4 }} />{item.applicant.location}</td>
-                          <td>{item.applicant.gender}</td>
-                          <td><Smartphone size={14} style={{ marginRight: 4 }} />{item.applicant.deviceType}</td>
-                          <td>
-                            <span className={`status-dot ${item.approved ? 'status-approved' : 'status-denied'}`}></span>
-                            {item.approved ? 'Approved' : 'Rejected'}
-                          </td>
-                          <td>
-                            <button
-                              onClick={() => importToSimulator(item)}
-                              style={{ fontSize: '0.7rem', padding: '0.25rem 0.5rem', borderRadius: '6px', backgroundColor: '#7462f3', color: '#fff', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
-                            >
-                              <ArrowRight size={12} /> Sim
-                            </button>
-                          </td>
+                    <table className="audit-table">
+                      <thead>
+                        <tr>
+                          <th>ID</th>
+                          <th>NAME</th>
+                          <th>INCOME</th>
+                          <th>LOAN</th>
+                          <th>LOCATION</th>
+                          <th>GENDER</th>
+                          <th>DEVICE</th>
+                          <th>STATUS</th>
+                          <th>WHAT-IF</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {batchResult.details.map((item, i) => (
+                          <tr key={i}>
+                            <td>{item.applicant.id}</td>
+                            <td>{item.applicant.name}</td>
+                            <td>₦{item.applicant.income.toLocaleString()}</td>
+                            <td>₦{Number(item.applicant.loanAmount || 0).toLocaleString()}</td>
+                            <td><MapPin size={14} style={{ marginRight: 4 }} />{item.applicant.location}</td>
+                            <td>{item.applicant.gender}</td>
+                            <td><Smartphone size={14} style={{ marginRight: 4 }} />{item.applicant.deviceType}</td>
+                            <td>
+                              <span className={`status-dot ${item.approved ? 'status-approved' : 'status-denied'}`}></span>
+                              {item.approved ? 'Approved' : 'Rejected'}
+                            </td>
+                            <td>
+                              <button
+                                onClick={() => importToSimulator(item)}
+                                style={{ fontSize: '0.7rem', padding: '0.25rem 0.5rem', borderRadius: '6px', backgroundColor: '#7462f3', color: '#fff', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+                              >
+                                <ArrowRight size={12} /> Sim
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* See More Button */}
+                  <div style={{ padding: '0.9rem 1.2rem', display: 'flex', justifyContent: 'center', borderTop: '2px solid var(--border-color)' }}>
+                    <button
+                      onClick={() => setActiveTab('batch-full-log')}
+                      style={{
+                        padding: '0.6rem 1.2rem',
+                        borderRadius: '8px',
+                        backgroundColor: '#7462f3',
+                        color: '#fff',
+                        border: 'none',
+                        cursor: 'pointer',
+                        fontSize: '0.85rem',
+                        fontWeight: '600',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.5rem',
+                        transition: 'all 0.2s'
+                      }}
+                      onMouseOver={(e) => e.target.style.opacity = '0.88'}
+                      onMouseOut={(e) => e.target.style.opacity = '1'}
+                    >
+                      See More <ArrowRight size={16} />
+                    </button>
                   </div>
                 </div>
               </>
             )}
           </>
+        )}
+
+        {/* TAB 1B: FULL AUDIT LOG PAGE */}
+        {activeTab === 'batch-full-log' && batchResult && (
+          <div>
+            {/* Back Button & Title */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem' }}>
+              <button
+                onClick={() => setActiveTab('batch')}
+                style={{
+                  padding: '0.5rem 0.8rem',
+                  borderRadius: '8px',
+                  backgroundColor: 'transparent',
+                  color: 'var(--text-primary)',
+                  border: '2px solid var(--border-color)',
+                  cursor: 'pointer',
+                  fontSize: '0.85rem',
+                  fontWeight: '600',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.4rem',
+                  transition: 'all 0.2s'
+                }}
+                onMouseOver={(e) => e.target.style.borderColor = '#7462f3'}
+                onMouseOut={(e) => e.target.style.borderColor = 'var(--border-color)'}
+              >
+                <ChevronLeft size={18} /> Back to Summary
+              </button>
+              <h1 style={{ fontSize: '1.3rem', fontWeight: '700' }}>Full Audit Log (100 Cases)</h1>
+            </div>
+
+            {/* Search & Filter Bar */}
+            <div className="full-log-controls" style={{ display: 'flex', gap: '0.8rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+              <div style={{ flex: 1, minWidth: '200px' }}>
+                <input
+                  type="text"
+                  placeholder="Search by name, ID, location, or gender..."
+                  value={fullLogSearch}
+                  onChange={(e) => setFullLogSearch(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '0.65rem 0.85rem',
+                    borderRadius: '8px',
+                    border: '2px solid var(--border-color)',
+                    backgroundColor: 'var(--bg-secondary)',
+                    color: 'var(--text-primary)',
+                    fontSize: '0.85rem',
+                    transition: 'border-color 0.2s'
+                  }}
+                  onFocus={(e) => e.target.style.borderColor = '#7462f3'}
+                  onBlur={(e) => e.target.style.borderColor = 'var(--border-color)'}
+                />
+              </div>
+
+              <select
+                value={fullLogFilter}
+                onChange={(e) => setFullLogFilter(e.target.value)}
+                style={{
+                  padding: '0.65rem 0.85rem',
+                  borderRadius: '8px',
+                  border: '2px solid var(--border-color)',
+                  backgroundColor: 'var(--bg-secondary)',
+                  color: 'var(--text-primary)',
+                  fontSize: '0.85rem',
+                  cursor: 'pointer'
+                }}
+              >
+                <option value="all">All Cases ({batchResult.details.length})</option>
+                <option value="approved">Approved ({batchResult.details.filter(d => d.approved).length})</option>
+                <option value="denied">Denied ({batchResult.details.filter(d => !d.approved).length})</option>
+              </select>
+
+              <div style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', display: 'flex', alignItems: 'center' }}>
+                Showing {getFilteredFullLog().length} of {batchResult.details.length} cases
+              </div>
+            </div>
+
+            {/* Full Audit Table */}
+            <div className="audit-log-card glass">
+              <div className="audit-table-wrap" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
+                <table className="audit-table">
+                  <thead style={{ position: 'sticky', top: 0, backgroundColor: 'var(--bg-secondary)', zIndex: 10 }}>
+                    <tr>
+                      <th>#</th>
+                      <th>ID</th>
+                      <th>NAME</th>
+                      <th>INCOME</th>
+                      <th>LOAN</th>
+                      <th>CREDIT SCORE</th>
+                      <th>LOCATION</th>
+                      <th>GENDER</th>
+                      <th>DEVICE</th>
+                      <th>STATUS</th>
+                      <th>WHAT-IF</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {getFilteredFullLog().map((item, idx) => (
+                      <tr key={idx}>
+                        <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{idx + 1}</td>
+                        <td>{item.applicant.id}</td>
+                        <td>{item.applicant.name}</td>
+                        <td>₦{item.applicant.income.toLocaleString()}</td>
+                        <td>₦{Number(item.applicant.loanAmount || 0).toLocaleString()}</td>
+                        <td>{item.applicant.creditScore}</td>
+                        <td><MapPin size={14} style={{ marginRight: 4, display: 'inline' }} />{item.applicant.location}</td>
+                        <td>{item.applicant.gender}</td>
+                        <td><Smartphone size={14} style={{ marginRight: 4, display: 'inline' }} />{item.applicant.deviceType}</td>
+                        <td>
+                          <span className={`status-dot ${item.approved ? 'status-approved' : 'status-denied'}`}></span>
+                          {item.approved ? 'Approved' : 'Rejected'}
+                        </td>
+                        <td>
+                          <button
+                            onClick={() => importToSimulator(item)}
+                            style={{ fontSize: '0.7rem', padding: '0.25rem 0.5rem', borderRadius: '6px', backgroundColor: '#7462f3', color: '#fff', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+                          >
+                            <ArrowRight size={12} /> Sim
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {getFilteredFullLog().length === 0 && (
+                <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                  No cases match your filters. Try adjusting your search or status filter.
+                </div>
+              )}
+            </div>
+          </div>
         )}
 
         {/* TAB 2: SINGLE APPLICANT SIMULATOR */}
@@ -578,9 +745,9 @@ const DashboardV2 = () => {
               <div className="form-grid compact-form-grid">
                 <div className="input-group">
                   <label style={{ display: 'block', marginBottom: '0.4rem', color: '#ccc' }}>Applicant Name</label>
-                  <input 
-                    type="text" 
-                    value={formData.name} 
+                  <input
+                    type="text"
+                    value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                     style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1px solid #444', backgroundColor: '#111', color: '#fff' }}
                   />
@@ -588,9 +755,9 @@ const DashboardV2 = () => {
 
                 <div className="input-group">
                   <label style={{ display: 'block', marginBottom: '0.4rem', color: '#ccc' }}>Monthly Income (₦)</label>
-                  <input 
-                    type="number" 
-                    value={formData.income} 
+                  <input
+                    type="number"
+                    value={formData.income}
                     onChange={(e) => setFormData({ ...formData, income: parseInt(e.target.value) || 0 })}
                     style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1px solid #444', backgroundColor: '#111', color: '#fff' }}
                   />
@@ -598,9 +765,9 @@ const DashboardV2 = () => {
 
                 <div className="input-group">
                   <label style={{ display: 'block', marginBottom: '0.4rem', color: '#ccc' }}>Loan Amount (₦)</label>
-                  <input 
-                    type="number" 
-                    value={formData.loanAmount} 
+                  <input
+                    type="number"
+                    value={formData.loanAmount}
                     onChange={(e) => setFormData({ ...formData, loanAmount: parseInt(e.target.value) || 0 })}
                     style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1px solid #444', backgroundColor: '#111', color: '#fff' }}
                   />
@@ -608,8 +775,8 @@ const DashboardV2 = () => {
 
                 <div className="input-group">
                   <label style={{ display: 'block', marginBottom: '0.4rem', color: '#ccc' }}>Location (State)</label>
-                  <select 
-                    value={formData.location} 
+                  <select
+                    value={formData.location}
                     onChange={(e) => setFormData({ ...formData, location: e.target.value })}
                     style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1px solid #444', backgroundColor: '#111', color: '#fff' }}
                   >
@@ -625,8 +792,8 @@ const DashboardV2 = () => {
 
                 <div className="input-group">
                   <label style={{ display: 'block', marginBottom: '0.4rem', color: '#ccc' }}>Gender</label>
-                  <select 
-                    value={formData.gender} 
+                  <select
+                    value={formData.gender}
                     onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
                     style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1px solid #444', backgroundColor: '#111', color: '#fff' }}
                   >
@@ -637,11 +804,11 @@ const DashboardV2 = () => {
 
                 <div className="input-group">
                   <label style={{ display: 'block', marginBottom: '0.4rem', color: '#ccc' }}>Credit Score (300 - 850)</label>
-                  <input 
-                    type="range" 
-                    min="300" 
-                    max="850" 
-                    value={formData.creditScore} 
+                  <input
+                    type="range"
+                    min="300"
+                    max="850"
+                    value={formData.creditScore}
                     onChange={(e) => setFormData({ ...formData, creditScore: parseInt(e.target.value) || 300 })}
                     style={{ width: '100%', accentColor: '#7462f3' }}
                   />
@@ -653,18 +820,18 @@ const DashboardV2 = () => {
                 </div>
 
                 <label className="toggle-label" style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', cursor: 'pointer', color: '#ccc', marginTop: '0.5rem' }}>
-                  <input 
-                    type="checkbox" 
-                    checked={formData.criminalRecord} 
-                    onChange={(e) => setFormData({ ...formData, criminalRecord: e.target.checked })} 
+                  <input
+                    type="checkbox"
+                    checked={formData.criminalRecord}
+                    onChange={(e) => setFormData({ ...formData, criminalRecord: e.target.checked })}
                   />
                   <span>Has Prior Criminal Record</span>
                 </label>
               </div>
 
-              <button 
-                className="btn-audit" 
-                onClick={runSingleSimulation} 
+              <button
+                className="btn-audit"
+                onClick={runSingleSimulation}
                 disabled={isSingleAuditing}
                 style={{ width: '100%', marginTop: '1.5rem', padding: '0.8rem' }}
               >
@@ -692,7 +859,7 @@ const DashboardV2 = () => {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <h3 style={{ fontSize: '1.2rem', color: '#fff' }}>Simulation Verdict</h3>
-                    <span 
+                    <span
                       className={`status-dot ${singleResult.approved ? 'status-approved' : 'status-denied'}`}
                       style={{ padding: '0.4rem 0.8rem', borderRadius: '20px', color: '#fff', fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
                     >
@@ -707,11 +874,11 @@ const DashboardV2 = () => {
                       <span style={{ color: '#7462f3', fontWeight: 'bold' }}>{singleResult.score} / 100</span>
                     </div>
                     <div className="meter-bar" style={{ height: 8, backgroundColor: '#333', borderRadius: '4px', overflow: 'hidden' }}>
-                      <div 
-                        className="meter-fill" 
-                        style={{ 
-                          height: '100%', 
-                          width: `${singleResult.score}%`, 
+                      <div
+                        className="meter-fill"
+                        style={{
+                          height: '100%',
+                          width: `${singleResult.score}%`,
                           backgroundColor: singleResult.score >= 50 ? '#10b981' : '#ef4444',
                           transition: 'width 0.4s ease-out'
                         }}
@@ -748,11 +915,11 @@ const DashboardV2 = () => {
                       {(singleResult.factors || []).map((f, i) => (
                         <div key={i} className="factor-item" style={{ display: 'flex', justifyContent: 'space-between', padding: '0.6rem 0.8rem', backgroundColor: '#111', borderRadius: '8px', border: '1px solid #222' }}>
                           <span style={{ fontSize: '0.85rem' }}>{f.name}</span>
-                          <span 
-                            style={{ 
-                              fontSize: '0.85rem', 
-                              fontWeight: 'bold', 
-                              color: f.impact > 0 ? '#10b981' : '#ef4444' 
+                          <span
+                            style={{
+                              fontSize: '0.85rem',
+                              fontWeight: 'bold',
+                              color: f.impact > 0 ? '#10b981' : '#ef4444'
                             }}
                           >
                             {f.impact > 0 ? `+${f.impact}` : f.impact}%
@@ -802,7 +969,7 @@ const DashboardV2 = () => {
             <div style={{ marginTop: '1rem', padding: '0.8rem 1rem', background: 'var(--bg-secondary)', borderRadius: '12px', border: '2px solid var(--border-color)', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
               <strong style={{ color: 'var(--text-primary)' }}>Sample CSV format:</strong>
               <pre style={{ marginTop: '0.4rem', fontSize: '0.75rem', overflowX: 'auto' }}>
-{`Name,Income,LoanAmount,CreditScore,Location,Gender,DeviceType,Approved
+                {`Name,Income,LoanAmount,CreditScore,Location,Gender,DeviceType,Approved
 Ade Bello,250000,400000,720,Lagos,Male,iPhone,true
 Fatima Sule,80000,300000,410,Kano,Female,Tecno Spark,false`}
               </pre>
@@ -901,8 +1068,8 @@ Fatima Sule,80000,300000,410,Kano,Female,Tecno Spark,false`}
           <div className="audit-history-panel glass" style={{ padding: '1.5rem', borderRadius: '16px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
               <h2 className="gradient-text" style={{ fontSize: '1.3rem' }}>Local Audit Logs</h2>
-              <button 
-                onClick={clearHistory} 
+              <button
+                onClick={clearHistory}
                 disabled={historyList.length === 0}
                 style={{ padding: '0.4rem 0.8rem', borderRadius: '8px', backgroundColor: '#ef4444', border: 'none', color: '#fff', cursor: 'pointer', fontSize: '0.8rem' }}
               >
@@ -920,12 +1087,12 @@ Fatima Sule,80000,300000,410,Kano,Female,Tecno Spark,false`}
                 {historyList.map((item) => (
                   <div key={item.id} className="history-item-card" style={{ padding: '1rem', backgroundColor: '#111', borderRadius: '12px', border: '1px solid #222' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                      <span 
-                        style={{ 
-                          fontSize: '0.75rem', 
-                          fontWeight: 'bold', 
-                          padding: '0.2rem 0.6rem', 
-                          borderRadius: '4px', 
+                      <span
+                        style={{
+                          fontSize: '0.75rem',
+                          fontWeight: 'bold',
+                          padding: '0.2rem 0.6rem',
+                          borderRadius: '4px',
                           backgroundColor: item.type === 'Batch Audit' ? '#7462f3' : '#10b981',
                           color: '#fff'
                         }}
@@ -940,14 +1107,14 @@ Fatima Sule,80000,300000,410,Kano,Female,Tecno Spark,false`}
                     <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap', marginTop: '0.6rem' }}>
                       <span style={{ fontSize: '0.7rem', color: '#777' }}>Settings:</span>
                       {Object.entries(item.settings).map(([key, val]) => (
-                        <span 
-                          key={key} 
-                          style={{ 
-                            fontSize: '0.7rem', 
-                            padding: '0.1rem 0.4rem', 
-                            borderRadius: '4px', 
-                            backgroundColor: '#222', 
-                            color: val ? '#ec4899' : '#555' 
+                        <span
+                          key={key}
+                          style={{
+                            fontSize: '0.7rem',
+                            padding: '0.1rem 0.4rem',
+                            borderRadius: '4px',
+                            backgroundColor: '#222',
+                            color: val ? '#ec4899' : '#555'
                           }}
                         >
                           {key}: {val ? 'ON' : 'OFF'}
