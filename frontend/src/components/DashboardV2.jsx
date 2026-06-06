@@ -15,13 +15,20 @@ import {
   FileText,
   Download,
   Upload,
-  ArrowRight
+  ArrowRight,
+  ArrowLeft
 } from 'lucide-react';
 import './DashboardV2.css';
 
 const DashboardV2 = () => {
   // Tabs: 'batch', 'single', 'history'
   const [activeTab, setActiveTab] = useState('batch');
+
+  // Spreadsheet Filter States
+  const [searchQuery, setSearchQuery] = useState('');
+  const [genderFilter, setGenderFilter] = useState('All');
+  const [statusFilter, setStatusFilter] = useState('All');
+  const [locationFilter, setLocationFilter] = useState('All');
 
   // Batch Audit States
   const [batchResult, setBatchResult] = useState(null);
@@ -357,6 +364,22 @@ const DashboardV2 = () => {
       </svg>
     );
   };
+
+  const filteredDetails = (batchResult?.details || []).filter(item => {
+    const matchesSearch = searchQuery === '' || 
+      item.applicant.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      item.applicant.id.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    const matchesGender = genderFilter === 'All' || item.applicant.gender === genderFilter;
+    
+    const matchesStatus = statusFilter === 'All' || 
+      (statusFilter === 'Approved' && item.approved) || 
+      (statusFilter === 'Rejected' && !item.approved);
+      
+    const matchesLocation = locationFilter === 'All' || item.applicant.location === locationFilter;
+    
+    return matchesSearch && matchesGender && matchesStatus && matchesLocation;
+  });
 
   return (
     <div className="dashboard-v2">

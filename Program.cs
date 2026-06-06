@@ -7,12 +7,77 @@ using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 
-var builder = WebApplication.CreateBuilder(args);
-
 // Add services to the container.
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddHttpClient();
+
+// Configure CORS
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAll", policy =>
+        policy.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader());
+
+    options.AddPolicy("Production", policy =>
+    {
+        var renderUrl = Environment.GetEnvironmentVariable("RENDER_EXTERNAL_URL");
+        if (!string.IsNullOrEmpty(renderUrl))
+            policy.WithOrigins(renderUrl).AllowAnyMethod().AllowAnyHeader();
+        else
+            policy.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader();
+    });
+});
+
+// Load .env file (supporting parent directory search)
+string FindEnvFile()
+{
+    var dir = Directory.GetCurrentDirectory();
+    while (dir != null)
+    {
+        var path = Path.Combine(dir, ".env");
+        if (File.Exists(path)) return path;
+        dir = Directory.GetParent(dir)?.FullName;
+    }
+    return null;
+}
+
+var envPath = FindEnvFile();
+if (envPath != null)
+{
+    foreach (var line in File.ReadAllLines(envPath))
+    {
+        var parts = line.Split('=', 2);
+        if (parts.Length == 2)
+        {
+            Environment.SetEnvironmentVariable(parts[0].Trim(), parts[1].Trim());
+        }
+    }
+}
+
+// Configure Supabase (Optional)
+var supabaseUrl = Environment.GetEnvironmentVariable("SUPABASE_URL");
+var supabaseKey = Environment.GetEnvironmentVariable("SUPABASE_SERVICE_ROLE_KEY");
+
+if (!string.IsNullOrEmpty(supabaseUrl) && !string.IsNullOrEmpty(supabaseKey))
+{
+    builder.Services.AddSingleton(new Supabase.Client(supabaseUrl, supabaseKey));
+}
+
+var app = builder.Build();
+
+// Configure the HTTP request pipeline.
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
+
+// Use the strict Production policy on Render; fall back to AllowAll locally.
+app.UseCors(app.Environment.IsDevelopment() ? "AllowAll" : "Production");
+
+// Serve frontend static files only if the directory exists
+var distPath = Path.Combine(builder.Environment.ContentRootPath, "frontend", "dist");
+if (Directory.Exists(distPath))
 {
     var fileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(distPath);
     app.UseDefaultFiles(new DefaultFilesOptions
@@ -31,6 +96,7 @@ builder.Services.AddHttpClient();
         FileProvider = fileProvider
     });
 }
+
 app.MapGet("/api", () => Results.Ok(new { message = "LEBA API is active (C# Edition)" }));
 
 app.MapPost("/api/predict", async ([FromBody] PredictionRequest request, IHttpClientFactory httpClientFactory) =>
@@ -249,7 +315,7 @@ app.MapPost("/api/audit/batch", async ([FromBody] BatchAuditRequest request) =>
                 approvalRate = Math.Round((double)g.Count(r => r.Approved) / g.Count(), 2)
             })
         },
-        details = results.Take(10) // Return first 10 for sample inspection
+        details = results // Return ALL results for spreadsheet page view
     };
 
     return Results.Ok(report);
