@@ -7,69 +7,12 @@ using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 
+var builder = WebApplication.CreateBuilder(args);
+
 // Add services to the container.
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddHttpClient();
-
-// Configure CORS
-// • Development  → allow any origin (convenient for local Vite dev server)
-// • Production   → restrict to the Render-assigned public URL.
-//   Render automatically injects RENDER_EXTERNAL_URL, e.g.
-//   https://leba-app.onrender.com — no manual configuration needed.
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy("AllowAll", policy =>
-        policy.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader());
-
-    options.AddPolicy("Production", policy =>
-    {
-        var renderUrl = Environment.GetEnvironmentVariable("RENDER_EXTERNAL_URL");
-        if (!string.IsNullOrEmpty(renderUrl))
-            policy.WithOrigins(renderUrl).AllowAnyMethod().AllowAnyHeader();
-        else
-            policy.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader();
-    });
-});
-
-// Load .env file
-var envPath = Path.Combine(Directory.GetCurrentDirectory(), ".env");
-if (File.Exists(envPath))
-{
-    foreach (var line in File.ReadAllLines(envPath))
-    {
-        var parts = line.Split('=', 2);
-        if (parts.Length == 2)
-        {
-            Environment.SetEnvironmentVariable(parts[0].Trim(), parts[1].Trim());
-        }
-    }
-}
-
-// Configure Supabase (Optional)
-var supabaseUrl = Environment.GetEnvironmentVariable("SUPABASE_URL");
-var supabaseKey = Environment.GetEnvironmentVariable("SUPABASE_SERVICE_ROLE_KEY");
-
-if (!string.IsNullOrEmpty(supabaseUrl) && !string.IsNullOrEmpty(supabaseKey))
-{
-    builder.Services.AddSingleton(new Supabase.Client(supabaseUrl, supabaseKey));
-}
-
-var app = builder.Build();
-
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
-
-// Use the strict Production policy on Render; fall back to AllowAll locally.
-app.UseCors(app.Environment.IsDevelopment() ? "AllowAll" : "Production");
-
-// Serve frontend static files only if the directory exists
-var distPath = Path.Combine(builder.Environment.ContentRootPath, "frontend", "dist");
-if (Directory.Exists(distPath))
 {
     var fileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(distPath);
     app.UseDefaultFiles(new DefaultFilesOptions
@@ -95,7 +38,6 @@ app.MapPost("/api/predict", async ([FromBody] PredictionRequest request, IHttpCl
     try
     {
         var formData = request.FormData;
-        var biasSettings = request.BiasSettings;
 
         int score = 0;
         var factors = new List<Factor>();
@@ -155,21 +97,18 @@ app.MapPost("/api/predict", async ([FromBody] PredictionRequest request, IHttpCl
             factors.Add(new Factor("Loan Amount Too High For Income", -25));
         }
 
-        // 2. Bias Injection Logic
+        // 2. Bias Injection Logic (always active for auditing demo)
         
         // Location Bias
-        if (biasSettings.PenalizeLocation)
+        var penalizedStates = new List<string> { "Kano", "Kaduna", "Delta", "Rivers" };
+        if (penalizedStates.Contains(formData.Location))
         {
-            var penalizedStates = new List<string> { "Kano", "Kaduna", "Delta", "Rivers" };
-            if (penalizedStates.Contains(formData.Location))
-            {
-                score -= 30;
-                factors.Add(new Factor("Regional Risk Adjustment (Biased)", -30));
-            }
+            score -= 30;
+            factors.Add(new Factor("Regional Risk Adjustment (Biased)", -30));
         }
 
         // Gender Bias
-        if (biasSettings.GenderBias && formData.Gender == "Female")
+        if (formData.Gender == "Female")
         {
             score -= 20;
             factors.Add(new Factor("Gender Weighting (Biased)", -20));
@@ -178,9 +117,8 @@ app.MapPost("/api/predict", async ([FromBody] PredictionRequest request, IHttpCl
         // Criminal Policy
         if (formData.CriminalRecord)
         {
-            int penalty = biasSettings.StrictCriminalRecord ? 60 : 20;
-            score -= penalty;
-            factors.Add(new Factor("Criminal Record Penalty", -penalty));
+            score -= 60;
+            factors.Add(new Factor("Criminal Record Penalty", -60));
         }
 
         int auditScore = Math.Clamp(score, 0, 100);
@@ -248,7 +186,7 @@ app.MapPost("/api/audit/batch", async ([FromBody] BatchAuditRequest request) =>
 
     foreach (var applicant in applicants)
     {
-        results.Add(RunAuditSimulation(applicant, request.BiasSettings));
+        results.Add(RunAuditSimulation(applicant));
     }
 
     // Calculate Fairness Metrics
@@ -433,8 +371,28 @@ List<SyntheticApplicant> GenerateApplicants(int count)
     var random = new Random();
     var states = new[] { "Lagos", "Abuja", "Kano", "Rivers", "Delta", "Enugu", "Kaduna" };
     var genders = new[] { "Male", "Female" };
-    var firstNames = new[] { "Adebayo", "Chioma", "Fatima", "Tunde", "Aisha", "Emeka", "Zainab", "Ifeoma", "Musa", "Adaeze", "Chinedu", "Suleiman", "Temitope", "Blessing" };
-    var lastNames = new[] { "Bello", "Okafor", "Adeyemi", "Eze", "Ibrahim", "Afolayan", "Nwosu", "Garba", "Oladipo", "Usman", "Onyeka", "Sani", "Balogun", "Okonkwo" };
+    var firstNames = new[] {
+        // Yoruba
+        "Adebayo", "Tunde", "Temitope", "Olusegun", "Adewale", "Bukola", "Folake", "Yetunde", "Oluwaseun", "Damilola",
+        // Igbo
+        "Chioma", "Emeka", "Ifeoma", "Adaeze", "Chinedu", "Obinna", "Nkechi", "Chukwuemeka", "Nneka", "Ugochukwu",
+        // Hausa
+        "Fatima", "Aisha", "Musa", "Suleiman", "Hauwa", "Aminu", "Halima", "Abdullahi", "Zainab", "Usman",
+        // Edo / Delta / South-South
+        "Blessing", "Osaze", "Eghosa", "Ivie", "Osagie", "Ehigiator", "Isoken", "Osakpolor",
+        // Tiv / Middle-Belt
+        "Terfa", "Ngunan", "Aondofa", "Sewuese"
+    };
+    var lastNames = new[] {
+        // Yoruba
+        "Bello", "Adeyemi", "Afolayan", "Oladipo", "Balogun", "Ogundimu", "Ayodele", "Fashola",
+        // Igbo
+        "Okafor", "Eze", "Nwosu", "Onyeka", "Okonkwo", "Nnamdi", "Obi", "Igwe",
+        // Hausa
+        "Ibrahim", "Garba", "Usman", "Sani", "Mohammed", "Danjuma", "Balarabe",
+        // Edo / Other
+        "Ogiemwonyi", "Igbinedion", "Okojie", "Ehikhamenor", "Adesanya"
+    };
     var banks = new[] { "GTB", "Zenith", "Kuda", "Opay", "FirstBank" };
     var lowEndDevices = new[] { "Infinix Note", "Tecno Spark" };
     var highEndDevices = new[] { "iPhone", "Samsung S22" };
@@ -490,7 +448,7 @@ List<SyntheticApplicant> GenerateApplicants(int count)
     }).ToList();
 }
 
-AuditResult RunAuditSimulation(SyntheticApplicant applicant, BiasSettings biasSettings)
+AuditResult RunAuditSimulation(SyntheticApplicant applicant)
 {
     int score = 0;
     
@@ -502,9 +460,9 @@ AuditResult RunAuditSimulation(SyntheticApplicant applicant, BiasSettings biasSe
     else if (loanRatio <= 3) score += 5;
     else score -= 25;
 
-    // Inject Bias
-    if (biasSettings.GenderBias && applicant.Gender == "Female") score -= 15;
-    if (biasSettings.PenalizeLocation && (applicant.Location == "Kano" || applicant.Location == "Delta")) score -= 25;
+    // Bias Injection (always active for auditing demo)
+    if (applicant.Gender == "Female") score -= 15;
+    if (applicant.Location == "Kano" || applicant.Location == "Delta") score -= 25;
     
     // Proxy Bias: Penalty for low-end devices (often correlates with lower income/class)
     if (applicant.DeviceType.Contains("Infinix") || applicant.DeviceType.Contains("Tecno")) score -= 10;
@@ -672,7 +630,7 @@ public record HuggingFacePrediction(
     string Note
 );
 
-public record BatchAuditRequest(int Count, BiasSettings BiasSettings);
+public record BatchAuditRequest(int Count);
 public record AuditResult(SyntheticApplicant Applicant, bool Approved, int Score);
 public record SyntheticApplicant(
     string Id,
@@ -699,15 +657,8 @@ public record FormData(
     bool CriminalRecord
 );
 
-public record BiasSettings(
-    bool PenalizeLocation,
-    bool GenderBias,
-    bool StrictCriminalRecord
-);
-
 public record PredictionRequest(
-    FormData FormData,
-    BiasSettings BiasSettings
+    FormData FormData
 );
 
 public record UploadedApplicant(
