@@ -50,7 +50,7 @@
 .nav-links {
   display: flex;
   align-items: center;
-  gap: 1.8rem;
+  gap: 5rem;
 }
 
 .nav-links button {
@@ -320,26 +320,26 @@
     grid-template-columns: 1fr;
     text-align: center;
   }
-  
+
   .hero-subtitle {
     margin-left: auto;
     margin-right: auto;
   }
-  
+
   .hero-actions {
     justify-content: center;
   }
-  
+
   .hero-visual {
     order: -1;
     margin-bottom: 3rem;
   }
-  
+
   .visual-circle {
     width: 200px;
     height: 200px;
   }
-  
+
   .visual-icon {
     width: 80px;
     height: 80px;
