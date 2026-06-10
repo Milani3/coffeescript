@@ -163,6 +163,8 @@ app.MapPost("/api/predict", async ([FromBody] PredictionRequest request, IHttpCl
         }
 
         // 2. Bias Injection Logic (always active for auditing demo)
+
+        // 2. Bias Injection Logic (always active for auditing demo)
         
         // Location Bias
         var penalizedStates = new List<string> { "Kano", "Kaduna", "Delta", "Rivers" };
@@ -289,15 +291,6 @@ app.MapPost("/api/audit/batch", async ([FromBody] BatchAuditRequest request) =>
                 femaleTotal = femaleResults.Count,
                 disparateImpactRatio = Math.Round(disparateImpact, 2)
             },
-            regionalDisparity = results.GroupBy(r => r.Applicant.Location)
-                .Select(g => new { 
-                    region = g.Key, 
-                    approvalRate = Math.Round((double)g.Count(r => r.Approved) / g.Count(), 2) 
-                }),
-            deviceDisparity = results.GroupBy(r => {
-                if (r.Applicant.DeviceType.Contains("iPhone")) return "iPhone";
-                if (r.Applicant.DeviceType.Contains("Samsung")) return "Samsung";
-                if (r.Applicant.DeviceType.Contains("Infinix") || r.Applicant.DeviceType.Contains("Tecno")) return "Infinix/Tecno";
                 return "Other";
             })
             .Select(g => new {
@@ -314,7 +307,7 @@ app.MapPost("/api/audit/batch", async ([FromBody] BatchAuditRequest request) =>
                 approvalRate = Math.Round((double)g.Count(r => r.Approved) / g.Count(), 2)
             })
         },
-        details = results.Take(10) // Return first 10 for sample inspection
+        details = results // Return all results for full audit log view
     };
 
     return Results.Ok(report);
