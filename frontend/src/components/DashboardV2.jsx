@@ -529,7 +529,7 @@ const DashboardV2 = () => {
                 </div>
 
                 <div className="audit-log-card glass" style={{ marginTop: '1.5rem' }}>
-                  <div style={{ padding: '1.2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'laft' }}>
+                  <div style={{ padding: '1.2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <h3 style={{ fontSize: '1.1rem' }}>Detailed Audit Log ({isCasesExpanded ? `All ${batchResult.details.length} Cases` : `Showing 10 of ${batchResult.details.length} Cases`})</h3>
                     <button
                       onClick={() => setIsCasesExpanded(!isCasesExpanded)}
