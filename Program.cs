@@ -291,6 +291,12 @@ app.MapPost("/api/audit/batch", async ([FromBody] BatchAuditRequest request) =>
                 femaleTotal = femaleResults.Count,
                 disparateImpactRatio = Math.Round(disparateImpact, 2)
             },
+            regionalDisparity = results.GroupBy(r => r.Applicant.Location)
+                .Select(g => new {
+                    region = g.Key,
+                    approvalRate = Math.Round((double)g.Count(r => r.Approved) / g.Count(), 2),
+                    total = g.Count()
+                }).OrderBy(r => r.region).ToList(),
             deviceDisparity = results.GroupBy(r => {
     if (r.Applicant.DeviceType.Contains("iPhone")) return "iPhone";
     if (r.Applicant.DeviceType.Contains("Samsung")) return "Samsung";
@@ -304,7 +310,7 @@ app.MapPost("/api/audit/batch", async ([FromBody] BatchAuditRequest request) =>
             incomeDisparity = results.GroupBy(r => {
                 if (r.Applicant.Income < 150000) return "Low";
                 if (r.Applicant.Income < 400000) return "Mid";
-                    return "Other";
+                    return "High";
                 })
                 .Select(g => new {
                     bracket = g.Key,
