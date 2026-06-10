@@ -529,31 +529,31 @@ const DashboardV2 = () => {
                 </div>
 
                 <div className="audit-log-card glass" style={{ marginTop: '1.5rem' }}>
-                  <div style={{ padding: '1.2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <h3 style={{ fontSize: '1.1rem' }}>Detailed Audit Log ({isCasesExpanded ? `All ${batchResult.details.length} Cases` : `Showing 10 of ${batchResult.details.length} Cases`})</h3>
-                      <button
-                        onClick={() => setIsCasesExpanded(!isCasesExpanded)}
-                        style={{
-                          padding: '0.4rem 0.8rem',
-                          borderRadius: '6px',
-                          backgroundColor: '#7462f3',
-                          color: '#fff',
-                          border: 'none',
-                          cursor: 'pointer',
-                          fontSize: '0.75rem',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '0.3rem'
-                        }}
-                      >
-                        {isCasesExpanded ? (
-                          <>Contract <ChevronUp size={14} /></>
-                        ) : (
-                          <>Expand <ChevronDown size={14} /></>
-                        )}
-                      </button>
-                      <Search size={20} color="#888" />
-                    </div>
+                  <div style={{ padding: '1.2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'laft' }}>
+                    <h3 style={{ fontSize: '1.1rem' }}>Detailed Audit Log ({isCasesExpanded ? `All ${batchResult.details.length} Cases` : `Showing 10 of ${batchResult.details.length} Cases`})</h3>
+                    <button
+                      onClick={() => setIsCasesExpanded(!isCasesExpanded)}
+                      style={{
+                        padding: '0.4rem 0.8rem',
+                        borderRadius: '6px',
+                        backgroundColor: '#7462f3',
+                        color: '#fff',
+                        border: 'none',
+                        cursor: 'pointer',
+                        fontSize: '0.75rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.3rem'
+                      }}
+                    >
+                      {isCasesExpanded ? (
+                        <>Contract <ChevronUp size={14} /></>
+                      ) : (
+                        <>Expand <ChevronDown size={14} /></>
+                      )}
+                    </button>
+                    <Search size={20} color="#888" />
+                  </div>
                   <div className="audit-table-wrap">
                     <table className="audit-table">
                       <thead>
@@ -597,7 +597,7 @@ const DashboardV2 = () => {
                     </table>
                   </div>
 
-                  
+
                 </div>
               </>
             )}
