@@ -50,7 +50,7 @@
 .nav-links {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 1.8rem;
 }
 
 .nav-links button {
@@ -358,7 +358,7 @@
   }
 
   .nav-links {
-    gap: 0.5rem;
+    gap: 1.2rem;
     overflow-x: auto;
   }
 
