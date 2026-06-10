@@ -16,7 +16,9 @@ import {
   Download,
   Upload,
   ArrowRight,
-  ChevronLeft
+  ChevronLeft,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import './DashboardV2.css';
 
@@ -63,6 +65,7 @@ const DashboardV2 = () => {
   // Full Log Search/Filter
   const [fullLogSearch, setFullLogSearch] = useState('');
   const [fullLogFilter, setFullLogFilter] = useState('all'); // 'all', 'approved', 'denied'
+  const [isCasesExpanded, setIsCasesExpanded] = useState(false);
 
   const API_URL = import.meta.env.VITE_API_URL || '';
 
@@ -527,7 +530,7 @@ const DashboardV2 = () => {
 
                 <div className="audit-log-card glass" style={{ marginTop: '1.5rem' }}>
                   <div style={{ padding: '1.2rem', display: 'flex', justifyContent: 'space-between' }}>
-                    <h3 style={{ fontSize: '1.1rem' }}>Detailed Audit Log (Sample of 10 Cases)</h3>
+                    <h3 style={{ fontSize: '1.1rem' }}>Detailed Audit Log ({isCasesExpanded ? `All ${batchResult.details.length} Cases` : `Showing 10 of ${batchResult.details.length} Cases`})</h3>
                     <Search size={20} color="#888" />
                   </div>
                   <div className="audit-table-wrap">
@@ -546,7 +549,7 @@ const DashboardV2 = () => {
                         </tr>
                       </thead>
                       <tbody>
-                        {batchResult.details.map((item, i) => (
+                        {batchResult.details.slice(0, isCasesExpanded ? batchResult.details.length : 10).map((item, i) => (
                           <tr key={i}>
                             <td>{item.applicant.id}</td>
                             <td>{item.applicant.name}</td>
@@ -574,9 +577,9 @@ const DashboardV2 = () => {
                   </div>
 
                   {/* See More Button */}
-                  <div style={{ padding: '0.9rem 1.2rem', display: 'flex', justifyContent: 'center', borderTop: '2px solid var(--border-color)' }}>
+                  <div style={{ padding: '0.9rem 1.2rem', display: 'flex', justifyContent: 'center', gap: '1rem', borderTop: '2px solid var(--border-color)' }}>
                     <button
-                      onClick={() => setActiveTab('batch-full-log')}
+                      onClick={() => setIsCasesExpanded(!isCasesExpanded)}
                       style={{
                         padding: '0.6rem 1.2rem',
                         borderRadius: '8px',
@@ -594,7 +597,15 @@ const DashboardV2 = () => {
                       onMouseOver={(e) => e.target.style.opacity = '0.88'}
                       onMouseOut={(e) => e.target.style.opacity = '1'}
                     >
-                      See More <ArrowRight size={16} />
+                      {isCasesExpanded ? (
+                        <>
+                          Contract Cases <ChevronUp size={16} />
+                        </>
+                      ) : (
+                        <>
+                          Expand Cases <ChevronDown size={16} />
+                        </>
+                      )}
                     </button>
                   </div>
                 </div>
