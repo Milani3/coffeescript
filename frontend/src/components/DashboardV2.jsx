@@ -189,6 +189,55 @@ const DashboardV2 = () => {
     URL.revokeObjectURL(url);
   };
 
+  // --- Export Batch Report as CSV ---
+  const exportBatchReportCSV = () => {
+    if (!batchResult) return;
+    const headers = ['ID', 'Name', 'Income', 'LoanAmount', 'Location', 'Gender', 'Device', 'Approved'];
+    const rows = batchResult.details.map(item => [
+      item.applicant.id,
+      item.applicant.name,
+      item.applicant.income,
+      item.applicant.loanAmount ?? '',
+      item.applicant.location,
+      item.applicant.gender,
+      item.applicant.deviceType ?? '',
+      item.approved ? 'true' : 'false'
+    ]);
+    const csvContent = [headers, ...rows].map(e => e.join(',')).join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `leba-batch-report-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // --- Export Batch Report as PNG ---
+  const exportBatchReportPNG = () => {
+    if (!batchResult) return;
+    // Simple PNG export of JSON text using canvas
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    const text = JSON.stringify(batchResult, null, 2);
+    const lines = text.split('\n');
+    const lineHeight = 14;
+    canvas.width = 800;
+    canvas.height = lineHeight * lines.length + 20;
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#000';
+    ctx.font = '12px monospace';
+    lines.forEach((line, i) => {
+      ctx.fillText(line, 10, 10 + i * lineHeight);
+    });
+    const url = canvas.toDataURL('image/png');
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `leba-batch-report-${new Date().toISOString().slice(0, 10)}.png`;
+    a.click();
+  };
+
   // --- Parse uploaded CSV or JSON file ---
   const parseFileToApplicants = (text, fileName) => {
     if (fileName.endsWith('.json')) {
@@ -442,19 +491,23 @@ const DashboardV2 = () => {
         {/* TAB 1: BATCH AUDIT */}
         {activeTab === 'batch' && (
           <>
-            <div className="batch-actions">
-              {batchResult && (
-                <button
-                  className="btn-audit"
-                  onClick={exportBatchReport}
-                  style={{ background: 'transparent', border: '2px solid var(--border-color)', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
-                >
-                  <Download size={16} /> Export JSON
-                </button>
-              )}
-              <button className="btn-audit" onClick={runBatchAudit} disabled={isBatchAuditing}>
+            <div className="batch-actions" style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+              <button className="btn-audit" onClick={runBatchAudit} disabled={isBatchAuditing} style={{ flex: '0 0 auto' }}>
                 {isBatchAuditing ? 'Auditing...' : 'Run New Batch Audit (100 Cases)'}
               </button>
+              {batchResult && (
+                <>
+                  <button className="btn-export" onClick={exportBatchReport} title="Export as JSON">
+                    <Download size={14} /> Export JSON
+                  </button>
+                  <button className="btn-export" onClick={exportBatchReportCSV} title="Export as CSV">
+                    <Download size={14} /> Export CSV
+                  </button>
+                  <button className="btn-export" onClick={exportBatchReportPNG} title="Export as PNG">
+                    <Download size={14} /> Export PNG
+                  </button>
+                </>
+              )}
             </div>
 
             {isBatchAuditing && !batchResult && (
