@@ -291,21 +291,25 @@ app.MapPost("/api/audit/batch", async ([FromBody] BatchAuditRequest request) =>
                 femaleTotal = femaleResults.Count,
                 disparateImpactRatio = Math.Round(disparateImpact, 2)
             },
-                return "Other";
-            })
-            .Select(g => new {
-                device = g.Key,
-                approvalRate = Math.Round((double)g.Count(r => r.Approved) / g.Count(), 2)
-            }),
+            deviceDisparity = results.GroupBy(r => {
+    if (r.Applicant.DeviceType.Contains("iPhone")) return "iPhone";
+    if (r.Applicant.DeviceType.Contains("Samsung")) return "Samsung";
+    if (r.Applicant.DeviceType.Contains("Infinix") || r.Applicant.DeviceType.Contains("Tecno")) return "Infinix/Tecno";
+    return "Other";
+})
+.Select(g => new {
+    device = g.Key,
+    approvalRate = Math.Round((double)g.Count(r => r.Approved) / g.Count(), 2)
+}),
             incomeDisparity = results.GroupBy(r => {
                 if (r.Applicant.Income < 150000) return "Low";
                 if (r.Applicant.Income < 400000) return "Mid";
-                return "High";
-            })
-            .Select(g => new {
-                bracket = g.Key,
-                approvalRate = Math.Round((double)g.Count(r => r.Approved) / g.Count(), 2)
-            })
+                    return "Other";
+                })
+                .Select(g => new {
+                    bracket = g.Key,
+                    approvalRate = Math.Round((double)g.Count(r => r.Approved) / g.Count(), 2)
+                }),
         },
         details = results // Return all results for full audit log view
     };
