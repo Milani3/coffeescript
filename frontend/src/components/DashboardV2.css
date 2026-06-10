@@ -321,6 +321,11 @@
   border: none;
 }
 
+.light .btn-audit {
+  background: #fff;
+  color: var(--text-primary);
+}
+
 .btn-audit:hover {
   opacity: 0.88;
   transform: translateY(-1px);
