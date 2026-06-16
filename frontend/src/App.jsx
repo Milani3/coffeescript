@@ -20,9 +20,11 @@ const Navbar = ({ currentView, setView, session, theme, toggleTheme, onSignOut }
         <span style={{ letterSpacing: '2px', fontSize: '1.2rem' }}>LEBA</span>
       </div>
       <div className="nav-links">
-        <button onClick={() => setView('home')} className={currentView === 'home' ? 'active' : ''}>
-          Features
-        </button>
+        {!session && (
+          <button onClick={() => setView('home')} className={currentView === 'home' ? 'active' : ''}>
+            Features
+          </button>
+        )}
         <button 
           onClick={toggleTheme} 
           className="theme-toggle-btn" 
