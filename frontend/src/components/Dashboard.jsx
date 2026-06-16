@@ -1,23 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  User, 
-  MapPin, 
-  Briefcase, 
-  CreditCard, 
-  ShieldAlert, 
-  ToggleLeft, 
-  ToggleRight,
-  Info,
-  ChevronRight,
-  TrendingUp,
-  AlertTriangle,
-  BarChart3
+import {
+  User,
+  MapPin,
+  CreditCard,
+  AlertCircle,
+  CheckCircle,
+  BarChart3,
+  Play,
+  Zap
 } from 'lucide-react';
-import './Dashboard.css';
+import './Dashboard_Redesigned.css';
 
 const Dashboard = () => {
-  // 1. Simulation State
   const [formData, setFormData] = useState({
     name: '',
     income: 150000,
@@ -25,39 +20,37 @@ const Dashboard = () => {
     creditScore: 650,
     location: 'Lagos',
     criminalRecord: false,
-    gender: 'Male'
   });
 
-  // 2. Bias Injection State
   const [biasSettings, setBiasSettings] = useState({
     penalizeLocation: false,
-    weightIncomeHeavily: false,
+    genderBias: false,
     strictCriminalRecord: true,
-    genderBias: false
   });
 
-  // 3. Result State
   const [result, setResult] = useState(null);
   const [batchResult, setBatchResult] = useState(null);
   const [metrics, setMetrics] = useState(null);
-  const [isAuditing, setIsAuditing] = useState(false);
-  const [isBatchAuditing, setIsBatchAuditing] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isBatchLoading, setIsBatchLoading] = useState(false);
 
-  // 4. API Calls
   const API_URL = import.meta.env.VITE_API_URL || 'https://coffeescript.onrender.com';
 
-  const fetchMetrics = async () => {
-    try {
-      const response = await fetch(`${API_URL}/api/metrics`);
-      const data = await response.json();
-      setMetrics(data);
-    } catch (e) { console.error(e); }
-  };
-
-  useEffect(() => { fetchMetrics(); }, []);
+  useEffect(() => {
+    const fetchMetrics = async () => {
+      try {
+        const response = await fetch(`${API_URL}/api/metrics`);
+        const data = await response.json();
+        setMetrics(data);
+      } catch (e) {
+        console.error(e);
+      }
+    };
+    fetchMetrics();
+  }, []);
 
   const runSimulation = async () => {
-    setIsAuditing(true);
+    setIsLoading(true);
     try {
       const response = await fetch(`${API_URL}/api/predict`, {
         method: 'POST',
@@ -69,12 +62,12 @@ const Dashboard = () => {
     } catch (error) {
       console.error('Audit failed:', error);
     } finally {
-      setIsAuditing(false);
+      setIsLoading(false);
     }
   };
 
   const runBatchAudit = async () => {
-    setIsBatchAuditing(true);
+    setIsBatchLoading(true);
     try {
       const response = await fetch(`${API_URL}/api/audit/batch`, {
         method: 'POST',
@@ -86,44 +79,49 @@ const Dashboard = () => {
     } catch (error) {
       console.error('Batch Audit failed:', error);
     } finally {
-      setIsBatchAuditing(false);
+      setIsBatchLoading(false);
     }
   };
 
+  const hasBias = Object.values(biasSettings).some(v => v);
+
   return (
-    <div className="dashboard-container">
-      <header className="dashboard-header">
-        <h2 className="gradient-text">LEBA Auditor Dashboard</h2>
-        <div className="bias-mode-indicator">
-          {Object.values(biasSettings).some(v => v) ? (
-            <span className="mode-tag warning"><AlertTriangle size={14} /> Bias Injected</span>
-          ) : (
-            <span className="mode-tag success">Standard Mode</span>
-          )}
+    <div className="dashboard">
+      {/* Header */}
+      <header className="header">
+        <div className="header-content">
+          <h1>LEBA Auditor</h1>
+          <span className={`status-badge ${hasBias ? 'active' : 'clean'}`}>
+            {hasBias ? 'Bias Mode' : 'Standard'}
+          </span>
         </div>
       </header>
 
-      <div className="dashboard-grid">
-        {/* Column 1: Simulator Form */}
-        <div className="card glass simulator-section">
-          <div className="card-header">
-            <User size={20} />
-            <h3>Loan Application Simulator</h3>
-          </div>
-          
-          <div className="form-grid">
-            <div className="input-group">
-              <label>Monthly Income (₦)</label>
-              <input 
-                type="number" 
-                value={formData.income} 
-                onChange={(e) => setFormData({...formData, income: e.target.value})}
+      {/* Main Content */}
+      <main className="main-content">
+        {/* Left Panel - Simulator */}
+        <section className="panel simulator-panel">
+          <h2>Application</h2>
+
+          <div className="form">
+            <div className="form-group">
+              <label htmlFor="income">Monthly Income (₦)</label>
+              <input
+                id="income"
+                type="number"
+                value={formData.income}
+                onChange={(e) => setFormData({ ...formData, income: e.target.value })}
+                placeholder="150000"
               />
             </div>
 
-            <div className="input-group">
-              <label>Location (State)</label>
-              <select value={formData.location} onChange={(e) => setFormData({...formData, location: e.target.value})}>
+            <div className="form-group">
+              <label htmlFor="location">State</label>
+              <select
+                id="location"
+                value={formData.location}
+                onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+              >
                 <option>Lagos</option>
                 <option>Abuja</option>
                 <option>Kano</option>
@@ -132,175 +130,177 @@ const Dashboard = () => {
               </select>
             </div>
 
-            <div className="input-group">
-              <label>Credit Score (300-850)</label>
-              <input 
-                type="range" min="300" max="850" 
-                value={formData.creditScore} 
-                onChange={(e) => setFormData({...formData, creditScore: e.target.value})}
-              />
-              <span className="value-display">{formData.creditScore}</span>
+            <div className="form-group">
+              <label htmlFor="credit">Credit Score</label>
+              <div className="input-with-value">
+                <input
+                  id="credit"
+                  type="range"
+                  min="300"
+                  max="850"
+                  value={formData.creditScore}
+                  onChange={(e) => setFormData({ ...formData, creditScore: e.target.value })}
+                />
+                <span className="value">{formData.creditScore}</span>
+              </div>
             </div>
 
-            <div className="input-group checkbox">
-              <label>Criminal Record</label>
-              <input 
-                type="checkbox" 
-                checked={formData.criminalRecord} 
-                onChange={(e) => setFormData({...formData, criminalRecord: e.target.checked})}
+            <label className="checkbox-label">
+              <input
+                type="checkbox"
+                checked={formData.criminalRecord}
+                onChange={(e) => setFormData({ ...formData, criminalRecord: e.target.checked })}
               />
-            </div>
+              <span>Criminal Record</span>
+            </label>
           </div>
 
-          <button className="btn-primary w-full" onClick={runSimulation} disabled={isAuditing}>
-            {isAuditing ? 'Auditing Algorithm...' : 'Run Prediction'}
+          <button
+            className="btn-primary"
+            onClick={runSimulation}
+            disabled={isLoading}
+          >
+            <Play size={16} />
+            {isLoading ? 'Running...' : 'Run Audit'}
           </button>
-        </div>
+        </section>
 
-        {/* Column 2: Result & Explainability */}
-        <div className="card glass result-section">
+        {/* Right Panel - Results & Metrics */}
+        <section className="panel result-panel">
           <AnimatePresence mode="wait">
             {!result ? (
-              <motion.div 
+              <motion.div
                 key="empty"
                 className="empty-state"
-                initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
               >
-                <Info size={48} />
-                <p>Run a simulation to see the audit results.</p>
+                <AlertCircle size={32} />
+                <p>Run an audit to see results</p>
               </motion.div>
             ) : (
-              <motion.div 
+              <motion.div
                 key="result"
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
+                className="result-content"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
               >
-                <div className={`status-badge ${result.approved ? 'approved' : 'denied'}`}>
-                  {result.approved ? 'LOAN APPROVED' : 'LOAN DENIED'}
-                </div>
-                
-                <div className="score-meter">
-                  <div className="meter-label">Fairness Score: {result.score}%</div>
-                  <div className="meter-bar">
-                    <div className="meter-fill" style={{ width: `${Math.max(0, result.score)}%` }}></div>
-                  </div>
+                <div className={`result-badge ${result.approved ? 'approved' : 'denied'}`}>
+                  {result.approved ? <CheckCircle size={20} /> : <AlertCircle size={20} />}
+                  <span>{result.approved ? 'APPROVED' : 'DENIED'}</span>
                 </div>
 
-                <div className="explainability-panel">
-                  <h4>Key Factors Affecting Decision</h4>
-                  <div className="factor-list">
-                    {result.factors.map((f, i) => (
-                      <div key={i} className="factor-item">
-                        <span>{f.name}</span>
-                        <span className={f.impact > 0 ? 'pos' : 'neg'}>
-                          {f.impact > 0 ? '+' : ''}{f.impact}%
-                        </span>
-                      </div>
-                    ))}
+                <div className="score-section">
+                  <div className="score-label">Fairness Score</div>
+                  <div className="score-bar">
+                    <div
+                      className="score-fill"
+                      style={{ width: `${Math.max(0, result.score)}%` }}
+                    ></div>
                   </div>
+                  <div className="score-value">{result.score}%</div>
                 </div>
+
+                {result.factors && result.factors.length > 0 && (
+                  <div className="factors-section">
+                    <h3>Factors</h3>
+                    <div className="factors-list">
+                      {result.factors.map((f, i) => (
+                        <div key={i} className="factor-row">
+                          <span className="factor-name">{f.name}</span>
+                          <span className={`factor-impact ${f.impact > 0 ? 'positive' : 'negative'}`}>
+                            {f.impact > 0 ? '+' : ''}{f.impact}%
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </motion.div>
             )}
           </AnimatePresence>
-        </div>
 
-        {/* Column 3: Bias Injection & What-If */}
-        <div className="side-panel">
-          <div className="card glass bias-injection-section">
-            <div className="card-header">
-              <ShieldAlert size={20} className="neg" />
-              <h3>Bias Injection Mode</h3>
-            </div>
-            <p className="card-hint">Manually alter weights to simulate discriminatory patterns.</p>
-
-            <div className="toggle-list">
-              <div className="toggle-item">
-                <span>Penalize Specific Regions</span>
-                <button onClick={() => setBiasSettings({...biasSettings, penalizeLocation: !biasSettings.penalizeLocation})}>
-                  {biasSettings.penalizeLocation ? <ToggleRight className="neg" /> : <ToggleLeft />}
-                </button>
-              </div>
-              <div className="toggle-item">
-                <span>Gender Bias (Simulated)</span>
-                <button onClick={() => setBiasSettings({...biasSettings, genderBias: !biasSettings.genderBias})}>
-                  {biasSettings.genderBias ? <ToggleRight className="neg" /> : <ToggleLeft />}
-                </button>
-              </div>
-              <div className="toggle-item">
-                <span>Strict Criminal Policy</span>
-                <button onClick={() => setBiasSettings({...biasSettings, strictCriminalRecord: !biasSettings.strictCriminalRecord})}>
-                  {biasSettings.strictCriminalRecord ? <ToggleRight className="neg" /> : <ToggleLeft />}
-                </button>
+          {/* Metrics Section */}
+          {metrics && (
+            <div className="metrics-section">
+              <h3>Regional Rates</h3>
+              <div className="metrics-grid">
+                {Object.entries(metrics.approvalRates).map(([region, rate]) => (
+                  <div key={region} className="metric-item">
+                    <span className="metric-label">{region}</span>
+                    <div className="metric-bar">
+                      <div
+                        className="metric-fill"
+                        style={{ width: `${rate * 100}%` }}
+                      ></div>
+                    </div>
+                    <span className="metric-value">{(rate * 100).toFixed(0)}%</span>
+                  </div>
+                ))}
               </div>
             </div>
+          )}
+        </section>
+      </main>
 
-            <button 
-              className="btn-secondary w-full mt-4" 
-              onClick={runBatchAudit} 
-              disabled={isBatchAuditing}
-              style={{ border: '1px dashed var(--accent-primary)' }}
+      {/* Bottom Controls */}
+      <aside className="controls-panel">
+        <div className="controls-section">
+          <h3>Bias Controls</h3>
+          <div className="toggles">
+            <button
+              className={`toggle-btn ${biasSettings.penalizeLocation ? 'active' : ''}`}
+              onClick={() => setBiasSettings({ ...biasSettings, penalizeLocation: !biasSettings.penalizeLocation })}
             >
-              {isBatchAuditing ? 'Processing Batch...' : 'Run Batch Audit (30 Cases)'}
+              <span>Regional Penalty</span>
+              <div className="toggle-indicator"></div>
+            </button>
+            <button
+              className={`toggle-btn ${biasSettings.genderBias ? 'active' : ''}`}
+              onClick={() => setBiasSettings({ ...biasSettings, genderBias: !biasSettings.genderBias })}
+            >
+              <span>Gender Bias</span>
+              <div className="toggle-indicator"></div>
+            </button>
+            <button
+              className={`toggle-btn ${biasSettings.strictCriminalRecord ? 'active' : ''}`}
+              onClick={() => setBiasSettings({ ...biasSettings, strictCriminalRecord: !biasSettings.strictCriminalRecord })}
+            >
+              <span>Strict Policy</span>
+              <div className="toggle-indicator"></div>
             </button>
           </div>
-
-          {batchResult && (
-            <motion.div 
-              initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-              className="card glass batch-report-section"
-            >
-              <div className="card-header">
-                <BarChart3 size={20} className="pos" />
-                <h3>Batch Fairness Report</h3>
-              </div>
-              <div className="report-summary">
-                <div className="summary-item">
-                  <label>Fairness Score</label>
-                  <span className={batchResult.summary.biasDetected ? 'neg' : 'pos'}>
-                    {batchResult.summary.fairnessScore}%
-                  </span>
-                </div>
-                <div className="summary-item">
-                  <label>Disparate Impact</label>
-                  <span>{batchResult.metrics.genderParity.disparateImpactRatio}</span>
-                </div>
-              </div>
-              <div className="mini-chart-container">
-                {batchResult.metrics.regionalDisparity.map((d, i) => (
-                  <div key={i} className="mini-bar-row">
-                    <span className="tiny-label">{d.region}</span>
-                    <div className="tiny-bar">
-                      <div className="tiny-fill" style={{ width: `${d.approvalRate * 100}%` }}></div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </motion.div>
-          )}
-
-          <div className="card glass metrics-section">
-            <div className="card-header">
-              <TrendingUp size={20} className="pos" />
-              <h3>Regional Approval Rates</h3>
-            </div>
-            {metrics && (
-              <div className="metrics-list">
-                {Object.entries(metrics.approvalRates).map(([region, rate]) => (
-                  <div key={region} className="metric-bar-group">
-                    <div className="metric-label">
-                      <span>{region}</span>
-                      <span>{(rate * 100).toFixed(0)}%</span>
-                    </div>
-                    <div className="mini-bar">
-                      <div className="mini-fill" style={{ width: `${rate * 100}%`, background: rate < 0.5 ? '#ef4444' : 'var(--accent-secondary)' }}></div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
         </div>
-      </div>
+
+        <button
+          className="btn-secondary"
+          onClick={runBatchAudit}
+          disabled={isBatchLoading}
+        >
+          <Zap size={16} />
+          {isBatchLoading ? 'Processing...' : 'Batch Audit (30)'}
+        </button>
+
+        {batchResult && (
+          <motion.div
+            className="batch-report"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+          >
+            <h3>Batch Report</h3>
+            <div className="report-grid">
+              <div className="report-item">
+                <span className="report-label">Fairness</span>
+                <span className="report-value">{batchResult.summary.fairnessScore}%</span>
+              </div>
+              <div className="report-item">
+                <span className="report-label">Disparity</span>
+                <span className="report-value">{batchResult.metrics.genderParity.disparateImpactRatio}</span>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </aside>
     </div>
   );
 };
