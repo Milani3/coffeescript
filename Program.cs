@@ -251,7 +251,7 @@ app.MapPost("/api/audit/batch", async ([FromBody] BatchAuditRequest request) =>
     return Results.Ok(report);
 });
 
-app.MapPost("/api/audit/document", ([FromBody] DocumentAuditRequest request) =>
+app.MapPost("/api/audit/document", async ([FromBody] DocumentAuditRequest request, IHttpClientFactory httpClientFactory) =>
 {
     var applicants = request.Applicants ?? new List<UploadedApplicant>();
     if (applicants.Count == 0)
@@ -340,6 +340,19 @@ app.MapPost("/api/audit/document", ([FromBody] DocumentAuditRequest request) =>
 
     complianceChecklist.Add(new { criterion = "NDPR Consent Compliance", status = "Pass", detail = "Applicant document records contain active consent markers." });
 
+    var aiAuditInsight = await GetHuggingFaceAuditInsight(
+        total,
+        approvalRate,
+        disparateImpact,
+        JsonSerializer.Serialize(regionalDisparity),
+        recommendations,
+        httpClientFactory
+    );
+    if (!string.IsNullOrWhiteSpace(aiAuditInsight.Note))
+    {
+        recommendations.Add(aiAuditInsight.Note);
+    }
+
     var report = new
     {
         timestamp = DateTime.UtcNow.ToString("o"),
@@ -353,7 +366,14 @@ app.MapPost("/api/audit/document", ([FromBody] DocumentAuditRequest request) =>
         },
         regionalDisparity,
         complianceChecklist,
-        recommendations
+        recommendations,
+        aiAudit = new
+        {
+            enabled = aiAuditInsight.Available,
+            model = aiAuditInsight.Model,
+            note = aiAuditInsight.Note,
+            confidence = aiAuditInsight.Confidence
+        }
     };
 
     return Results.Ok(report);
@@ -672,6 +692,106 @@ async Task<HuggingFacePrediction> GetHuggingFacePrediction(FormData formData, IH
     }
 }
 
+async Task<HuggingFaceAuditInsight> GetHuggingFaceAuditInsight(
+    int totalProcessed,
+    double approvalRate,
+    double disparateImpact,
+    string regionalDisparityJson,
+    List<string> recommendations,
+    IHttpClientFactory httpClientFactory)
+{
+    var accessToken = Environment.GetEnvironmentVariable("HF_ACCESS_TOKEN");
+    if (string.IsNullOrWhiteSpace(accessToken))
+    {
+        return new HuggingFaceAuditInsight(false, "Not configured", "HF_ACCESS_TOKEN is not set.", 0);
+    }
+
+    var model = Environment.GetEnvironmentVariable("HF_AUDIT_MODEL");
+    if (string.IsNullOrWhiteSpace(model))
+    {
+        model = "google/flan-t5-base";
+    }
+
+    var prompt = new StringBuilder();
+    prompt.AppendLine("You are an AI audit assistant for a Nigerian loan fairness review.");
+    prompt.AppendLine($"Total processed: {totalProcessed}.");
+    prompt.AppendLine($"Overall approval rate: {approvalRate:P2}.");
+    prompt.AppendLine($"Disparate impact ratio: {disparateImpact:F2}.");
+    prompt.AppendLine("Regional disparity summary:");
+    prompt.AppendLine(regionalDisparityJson);
+    prompt.AppendLine("Existing findings:");
+    foreach (var item in recommendations.Take(4))
+    {
+        prompt.AppendLine($"- {item}");
+    }
+    prompt.AppendLine("Return one short, practical audit note focusing on fairness, regional bias, or proxy bias.");
+
+    var payload = new
+    {
+        inputs = prompt.ToString(),
+        parameters = new
+        {
+            max_new_tokens = 120,
+            temperature = 0.2,
+            return_full_text = false
+        },
+        options = new
+        {
+            wait_for_model = true
+        }
+    };
+
+    try
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(25));
+        var client = httpClientFactory.CreateClient();
+        using var message = new HttpRequestMessage(HttpMethod.Post, $"https://api-inference.huggingface.co/models/{model}");
+        message.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        message.Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
+
+        using var response = await client.SendAsync(message, timeout.Token);
+        var body = await response.Content.ReadAsStringAsync(timeout.Token);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            return new HuggingFaceAuditInsight(false, model, $"Hugging Face returned {(int)response.StatusCode}.", 0);
+        }
+
+        using var document = JsonDocument.Parse(body);
+        var root = document.RootElement;
+        string note = "";
+
+        if (root.ValueKind == JsonValueKind.Array && root.GetArrayLength() > 0)
+        {
+            var first = root[0];
+            if (first.TryGetProperty("generated_text", out var generatedText))
+            {
+                note = generatedText.GetString() ?? "";
+            }
+            else if (first.TryGetProperty("summary_text", out var summaryText))
+            {
+                note = summaryText.GetString() ?? "";
+            }
+        }
+        else if (root.TryGetProperty("generated_text", out var directGeneratedText))
+        {
+            note = directGeneratedText.GetString() ?? "";
+        }
+
+        if (string.IsNullOrWhiteSpace(note))
+        {
+            note = "AI audit note could not be read.";
+        }
+
+        return new HuggingFaceAuditInsight(true, model, note.Trim(), 100);
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Hugging Face Audit Insight Error: {ex.Message}");
+        return new HuggingFaceAuditInsight(false, model, "AI audit assistant was unavailable.", 0);
+    }
+}
+
 string BuildDecisionExplanation(
     FormData formData,
     bool approved,
@@ -725,6 +845,13 @@ public record HuggingFacePrediction(
     double ApprovalScore,
     string Model,
     string Note
+);
+
+public record HuggingFaceAuditInsight(
+    bool Available,
+    string Model,
+    string Note,
+    double Confidence
 );
 
 public record BiasSettings(

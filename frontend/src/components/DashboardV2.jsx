@@ -1144,6 +1144,11 @@ Fatima Sule,80000,300000,410,Kano,Female,Tecno Spark,false`}
                   <h3 style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                     <Brain size={18} /> AI Audit Recommendations
                   </h3>
+                  {docAuditResult.aiAudit?.enabled && (
+                    <div style={{ marginBottom: '0.9rem', padding: '0.85rem 1rem', borderRadius: '10px', backgroundColor: 'rgba(116, 98, 243, 0.08)', border: '1px solid rgba(116, 98, 243, 0.25)', color: 'var(--text-primary)', fontSize: '0.85rem', lineHeight: 1.6 }}>
+                      <strong style={{ color: 'var(--text-primary)' }}>AI Note:</strong> {docAuditResult.aiAudit.note}
+                    </div>
+                  )}
                   {docAuditResult.recommendations.length === 0 ? (
                     <p style={{ color: '#10b981', fontSize: '0.9rem' }}>✅ No significant bias patterns detected in this dataset.</p>
                   ) : (
