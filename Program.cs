@@ -9,6 +9,7 @@ using System.Text.Json.Serialization;
 var builder = WebApplication.CreateBuilder(args);
 var runtimeLogs = new ConcurrentQueue<LogEntry>();
 const int MaxRuntimeLogs = 200;
+const string DefaultHfBaseUrl = "https://api-inference.huggingface.co";
 
 void AddRuntimeLog(string level, string category, string message, object details = null)
 {
@@ -736,7 +737,7 @@ async Task<HuggingFacePrediction> GetHuggingFacePrediction(FormData formData, IH
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(25));
         var client = httpClientFactory.CreateClient();
-        using var message = new HttpRequestMessage(HttpMethod.Post, $"https://api-inference.huggingface.co/models/{model}");
+        using var message = new HttpRequestMessage(HttpMethod.Post, BuildHuggingFaceModelUrl(model));
         message.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
         message.Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
 
@@ -783,9 +784,10 @@ async Task<HuggingFacePrediction> GetHuggingFacePrediction(FormData formData, IH
     }
     catch (Exception ex)
     {
-        Console.WriteLine($"Hugging Face Prediction Error: {ex.Message}");
-        AddRuntimeLog("error", "hf-simulator", "Hugging Face simulator exception", new { error = ex.Message });
-        return new HuggingFacePrediction(false, false, 0, 0, model, "AI model was unavailable, so LEBA used the local audit score.");
+        var classified = ClassifyHuggingFaceException(ex);
+        Console.WriteLine($"Hugging Face Prediction Error: {classified}");
+        AddRuntimeLog("error", "hf-simulator", "Hugging Face simulator exception", new { error = classified });
+        return new HuggingFacePrediction(false, false, 0, 0, model, classified);
     }
 }
 
@@ -842,7 +844,7 @@ async Task<HuggingFaceAuditInsight> GetHuggingFaceAuditInsight(
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(25));
         var client = httpClientFactory.CreateClient();
-        using var message = new HttpRequestMessage(HttpMethod.Post, $"https://api-inference.huggingface.co/models/{model}");
+        using var message = new HttpRequestMessage(HttpMethod.Post, BuildHuggingFaceModelUrl(model));
         message.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
         message.Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
 
@@ -890,9 +892,10 @@ async Task<HuggingFaceAuditInsight> GetHuggingFaceAuditInsight(
     }
     catch (Exception ex)
     {
-        Console.WriteLine($"Hugging Face Audit Insight Error: {ex.Message}");
-        AddRuntimeLog("error", "hf-audit", "Hugging Face audit exception", new { error = ex.Message });
-        return new HuggingFaceAuditInsight(false, model, "AI audit assistant was unavailable.", 0);
+        var classified = ClassifyHuggingFaceException(ex);
+        Console.WriteLine($"Hugging Face Audit Insight Error: {classified}");
+        AddRuntimeLog("error", "hf-audit", "Hugging Face audit exception", new { error = classified });
+        return new HuggingFaceAuditInsight(false, model, classified, 0);
     }
 }
 
@@ -913,7 +916,7 @@ async Task<object> ProbeHuggingFaceAsync(HttpClient client, string accessToken, 
             }
         };
 
-        using var message = new HttpRequestMessage(HttpMethod.Post, $"https://api-inference.huggingface.co/models/{model}");
+        using var message = new HttpRequestMessage(HttpMethod.Post, BuildHuggingFaceModelUrl(model));
         message.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
         message.Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
 
@@ -943,6 +946,35 @@ string TrimForLog(string value, int max = 700)
 {
     if (string.IsNullOrWhiteSpace(value)) return "";
     return value.Length <= max ? value : value.Substring(0, max) + "...";
+}
+
+string BuildHuggingFaceModelUrl(string model)
+{
+    var baseUrl = Environment.GetEnvironmentVariable("HF_API_BASE_URL");
+    if (string.IsNullOrWhiteSpace(baseUrl))
+    {
+        baseUrl = DefaultHfBaseUrl;
+    }
+
+    return $"{baseUrl.TrimEnd('/')}/models/{model}";
+}
+
+string ClassifyHuggingFaceException(Exception ex)
+{
+    var message = ex.Message ?? "Unknown Hugging Face error.";
+    var lower = message.ToLowerInvariant();
+
+    if (lower.Contains("name or service not known") || lower.Contains("no such host") || lower.Contains("dns"))
+    {
+        return $"Network/DNS failure reaching Hugging Face: {message}";
+    }
+
+    if (lower.Contains("timeout") || lower.Contains("task canceled") || lower.Contains("operation was canceled"))
+    {
+        return $"Hugging Face request timed out: {message}";
+    }
+
+    return $"Hugging Face request failed: {message}";
 }
 
 string BuildDecisionExplanation(
