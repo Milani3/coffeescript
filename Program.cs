@@ -9,7 +9,7 @@ using System.Text.Json.Serialization;
 var builder = WebApplication.CreateBuilder(args);
 var runtimeLogs = new ConcurrentQueue<LogEntry>();
 const int MaxRuntimeLogs = 200;
-const string DefaultHfBaseUrl = "https://api-inference.huggingface.co";
+const string DefaultHfBaseUrls = "https://api-inference.huggingface.co,https://router.huggingface.co/hf-inference";
 
 void AddRuntimeLog(string level, string category, string message, object details = null)
 {
@@ -737,50 +737,8 @@ async Task<HuggingFacePrediction> GetHuggingFacePrediction(FormData formData, IH
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(25));
         var client = httpClientFactory.CreateClient();
-        using var message = new HttpRequestMessage(HttpMethod.Post, BuildHuggingFaceModelUrl(model));
-        message.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
-        message.Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
-
-        using var response = await client.SendAsync(message, timeout.Token);
-        var body = await response.Content.ReadAsStringAsync(timeout.Token);
-
-        if (!response.IsSuccessStatusCode)
-        {
-            var failureNote = $"Hugging Face returned {(int)response.StatusCode}: {TrimForLog(body)}";
-            AddRuntimeLog("error", "hf-simulator", "Hugging Face simulator request failed", new
-            {
-                statusCode = (int)response.StatusCode,
-                body
-            });
-            return new HuggingFacePrediction(false, false, 0, 0, model, failureNote);
-        }
-
-        using var document = JsonDocument.Parse(body);
-        var root = document.RootElement;
-        if (!root.TryGetProperty("labels", out var labels) || !root.TryGetProperty("scores", out var scores))
-        {
-            return new HuggingFacePrediction(false, false, 0, 0, model, "The model response could not be read.");
-        }
-
-        double approveScore = 0;
-        double denyScore = 0;
-        for (int i = 0; i < labels.GetArrayLength(); i++)
-        {
-            var label = labels[i].GetString() ?? "";
-            var labelScore = scores[i].GetDouble();
-            if (label.Contains("approve", StringComparison.OrdinalIgnoreCase))
-            {
-                approveScore = labelScore;
-            }
-            else if (label.Contains("deny", StringComparison.OrdinalIgnoreCase))
-            {
-                denyScore = labelScore;
-            }
-        }
-
-        var approved = approveScore >= denyScore;
-        var confidence = Math.Max(approveScore, denyScore) * 100;
-        return new HuggingFacePrediction(true, approved, confidence, approveScore * 100, model, "AI model response received.");
+        var (available, approved, confidence, approvalScore, note) = await TryHuggingFacePredictionAsync(client, accessToken, model, payload, timeout.Token);
+        return new HuggingFacePrediction(available, approved, confidence, approvalScore, model, note);
     }
     catch (Exception ex)
     {
@@ -844,51 +802,8 @@ async Task<HuggingFaceAuditInsight> GetHuggingFaceAuditInsight(
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(25));
         var client = httpClientFactory.CreateClient();
-        using var message = new HttpRequestMessage(HttpMethod.Post, BuildHuggingFaceModelUrl(model));
-        message.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
-        message.Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
-
-        using var response = await client.SendAsync(message, timeout.Token);
-        var body = await response.Content.ReadAsStringAsync(timeout.Token);
-
-        if (!response.IsSuccessStatusCode)
-        {
-            var failureNote = $"Hugging Face returned {(int)response.StatusCode}: {TrimForLog(body)}";
-            AddRuntimeLog("error", "hf-audit", "Hugging Face audit request failed", new
-            {
-                statusCode = (int)response.StatusCode,
-                body
-            });
-            return new HuggingFaceAuditInsight(false, model, failureNote, 0);
-        }
-
-        using var document = JsonDocument.Parse(body);
-        var root = document.RootElement;
-        string note = "";
-
-        if (root.ValueKind == JsonValueKind.Array && root.GetArrayLength() > 0)
-        {
-            var first = root[0];
-            if (first.TryGetProperty("generated_text", out var generatedText))
-            {
-                note = generatedText.GetString() ?? "";
-            }
-            else if (first.TryGetProperty("summary_text", out var summaryText))
-            {
-                note = summaryText.GetString() ?? "";
-            }
-        }
-        else if (root.TryGetProperty("generated_text", out var directGeneratedText))
-        {
-            note = directGeneratedText.GetString() ?? "";
-        }
-
-        if (string.IsNullOrWhiteSpace(note))
-        {
-            note = "AI audit note could not be read.";
-        }
-
-        return new HuggingFaceAuditInsight(true, model, note.Trim(), 100);
+        var (available, note, confidence) = await TryHuggingFaceAuditInsightAsync(client, accessToken, model, payload, timeout.Token);
+        return new HuggingFaceAuditInsight(available, model, note, confidence);
     }
     catch (Exception ex)
     {
@@ -916,19 +831,16 @@ async Task<object> ProbeHuggingFaceAsync(HttpClient client, string accessToken, 
             }
         };
 
-        using var message = new HttpRequestMessage(HttpMethod.Post, BuildHuggingFaceModelUrl(model));
-        message.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
-        message.Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
-
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(20));
-        using var response = await client.SendAsync(message, timeout.Token);
-        var body = await response.Content.ReadAsStringAsync(timeout.Token);
-
+        var (available, approved, confidence, approvalScore, note) = await TryHuggingFacePredictionAsync(client, accessToken, model, payload, timeout.Token);
         return new
         {
-            ok = response.IsSuccessStatusCode,
-            statusCode = (int)response.StatusCode,
-            body = TrimForLog(body)
+            ok = available,
+            statusCode = available ? 200 : 0,
+            body = note,
+            approved,
+            confidence,
+            approvalScore
         };
     }
     catch (Exception ex)
@@ -950,13 +862,155 @@ string TrimForLog(string value, int max = 700)
 
 string BuildHuggingFaceModelUrl(string model)
 {
-    var baseUrl = Environment.GetEnvironmentVariable("HF_API_BASE_URL");
-    if (string.IsNullOrWhiteSpace(baseUrl))
+    var baseUrls = Environment.GetEnvironmentVariable("HF_API_BASE_URLS");
+    if (string.IsNullOrWhiteSpace(baseUrls))
     {
-        baseUrl = DefaultHfBaseUrl;
+        baseUrls = DefaultHfBaseUrls;
     }
 
-    return $"{baseUrl.TrimEnd('/')}/models/{model}";
+    return $"{baseUrls.Split(',')[0].Trim().TrimEnd('/')}/models/{model}";
+}
+
+string[] GetHuggingFaceBaseUrls()
+{
+    var configured = Environment.GetEnvironmentVariable("HF_API_BASE_URLS");
+    var raw = string.IsNullOrWhiteSpace(configured) ? DefaultHfBaseUrls : configured;
+    return raw.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+}
+
+async Task<(bool Available, bool Approved, double Confidence, double ApprovalScore, string Note)> TryHuggingFacePredictionAsync(
+    HttpClient client,
+    string accessToken,
+    string model,
+    object payload,
+    CancellationToken cancellationToken)
+{
+    foreach (var baseUrl in GetHuggingFaceBaseUrls())
+    {
+        try
+        {
+            using var message = new HttpRequestMessage(HttpMethod.Post, $"{baseUrl.TrimEnd('/')}/models/{model}");
+            message.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+            message.Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
+
+            using var response = await client.SendAsync(message, cancellationToken);
+            var body = await response.Content.ReadAsStringAsync(cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                AddRuntimeLog("error", "hf-simulator", "Hugging Face simulator request failed", new
+                {
+                    baseUrl,
+                    statusCode = (int)response.StatusCode,
+                    body
+                });
+                continue;
+            }
+
+            using var document = JsonDocument.Parse(body);
+            var root = document.RootElement;
+            if (!root.TryGetProperty("labels", out var labels) || !root.TryGetProperty("scores", out var scores))
+            {
+                continue;
+            }
+
+            double approveScore = 0;
+            double denyScore = 0;
+            for (int i = 0; i < labels.GetArrayLength(); i++)
+            {
+                var label = labels[i].GetString() ?? "";
+                var labelScore = scores[i].GetDouble();
+                if (label.Contains("approve", StringComparison.OrdinalIgnoreCase))
+                {
+                    approveScore = labelScore;
+                }
+                else if (label.Contains("deny", StringComparison.OrdinalIgnoreCase))
+                {
+                    denyScore = labelScore;
+                }
+            }
+
+            var approved = approveScore >= denyScore;
+            var confidence = Math.Max(approveScore, denyScore) * 100;
+            return (true, approved, confidence, approveScore * 100, $"AI model response received from {baseUrl}.");
+        }
+        catch (Exception ex)
+        {
+            var classified = ClassifyHuggingFaceException(ex);
+            AddRuntimeLog("error", "hf-simulator", "Hugging Face simulator exception", new { baseUrl, error = classified });
+            continue;
+        }
+    }
+
+    return (false, false, 0, 0, "All Hugging Face endpoints failed. LEBA used the local audit score.");
+}
+
+async Task<(bool Available, string Note, double Confidence)> TryHuggingFaceAuditInsightAsync(
+    HttpClient client,
+    string accessToken,
+    string model,
+    object payload,
+    CancellationToken cancellationToken)
+{
+    foreach (var baseUrl in GetHuggingFaceBaseUrls())
+    {
+        try
+        {
+            using var message = new HttpRequestMessage(HttpMethod.Post, $"{baseUrl.TrimEnd('/')}/models/{model}");
+            message.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+            message.Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
+
+            using var response = await client.SendAsync(message, cancellationToken);
+            var body = await response.Content.ReadAsStringAsync(cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                AddRuntimeLog("error", "hf-audit", "Hugging Face audit request failed", new
+                {
+                    baseUrl,
+                    statusCode = (int)response.StatusCode,
+                    body
+                });
+                continue;
+            }
+
+            using var document = JsonDocument.Parse(body);
+            var root = document.RootElement;
+            string note = "";
+
+            if (root.ValueKind == JsonValueKind.Array && root.GetArrayLength() > 0)
+            {
+                var first = root[0];
+                if (first.TryGetProperty("generated_text", out var generatedText))
+                {
+                    note = generatedText.GetString() ?? "";
+                }
+                else if (first.TryGetProperty("summary_text", out var summaryText))
+                {
+                    note = summaryText.GetString() ?? "";
+                }
+            }
+            else if (root.TryGetProperty("generated_text", out var directGeneratedText))
+            {
+                note = directGeneratedText.GetString() ?? "";
+            }
+
+            if (string.IsNullOrWhiteSpace(note))
+            {
+                note = "AI audit note could not be read.";
+            }
+
+            return (true, note.Trim(), 100);
+        }
+        catch (Exception ex)
+        {
+            var classified = ClassifyHuggingFaceException(ex);
+            AddRuntimeLog("error", "hf-audit", "Hugging Face audit exception", new { baseUrl, error = classified });
+            continue;
+        }
+    }
+
+    return (false, "All Hugging Face endpoints failed.", 0);
 }
 
 string ClassifyHuggingFaceException(Exception ex)
