@@ -302,6 +302,22 @@
   box-shadow: 0 0 10px #ef4444;
 }
 
+.verdict-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.8rem;
+  border-radius: 20px;
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 700;
+  white-space: nowrap;
+  width: fit-content;
+  min-width: 0;
+  line-height: 1;
+  overflow: hidden;
+}
+
 .btn-audit {
   background: var(--text-primary);
   color: var(--bg-primary);

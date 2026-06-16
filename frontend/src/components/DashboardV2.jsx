@@ -960,8 +960,7 @@ const DashboardV2 = () => {
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <h3 style={{ fontSize: '1.2rem', color: '#fff' }}>Simulation Verdict</h3>
                     <span
-                      className={`status-dot ${singleResult.approved ? 'status-approved' : 'status-denied'}`}
-                      style={{ padding: '0.4rem 0.8rem', borderRadius: '20px', color: '#fff', fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
+                      className={`verdict-pill ${singleResult.approved ? 'status-approved' : 'status-denied'}`}
                     >
                       {singleResult.approved ? <CheckCircle2 size={14} /> : <XCircle size={14} />}
                       {singleResult.approved ? 'APPROVED' : 'DENIED'}
