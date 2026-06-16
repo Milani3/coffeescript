@@ -158,7 +158,19 @@ const DashboardV2 = () => {
       saveAuditToHistory(
         'Single Simulation',
         `Simulated applicant ${formData.name} (${formData.gender}, ₦${formData.loanAmount.toLocaleString()} loan, ₦${formData.income.toLocaleString()} income, ${formData.location}). Decision: ${data.approved ? 'Approved' : 'Denied'} (Score: ${data.score}%).`,
-        { name: formData.name, approved: data.approved, score: data.score }
+        {
+          applicant: { ...formData },
+          decision: {
+            approved: data.approved,
+            score: data.score,
+            explanation: data.explanation,
+            factors: data.factors || [],
+            aiPrediction: data.aiPrediction || null,
+            metadata: data.metadata || null
+          },
+          biasSettings: { ...biasSettings },
+          response: data
+        }
       );
     } catch (err) {
       console.error('Single simulation failed:', err);
