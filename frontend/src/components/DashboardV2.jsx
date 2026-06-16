@@ -18,12 +18,14 @@ import {
   ArrowRight,
   ChevronLeft,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Server
 } from 'lucide-react';
+import RenderLogs from './RenderLogs';
 import './DashboardV2.css';
 
 const DashboardV2 = () => {
-  // Tabs: 'batch', 'single', 'history', 'batch-full-log'
+  // Tabs: 'batch', 'single', 'ai-audit', 'logs', 'history', 'batch-full-log'
   const [activeTab, setActiveTab] = useState('batch');
 
   // Batch Audit States
@@ -464,6 +466,10 @@ const DashboardV2 = () => {
             <button className={`top-nav-btn ${activeTab === 'ai-audit' ? 'active' : ''}`} onClick={() => setActiveTab('ai-audit')} title="AI Document Auditor">
               <Brain size={16} />
               <span>AI Audit</span>
+            </button>
+            <button className={`top-nav-btn ${activeTab === 'logs' ? 'active' : ''}`} onClick={() => setActiveTab('logs')} title="Render Logs">
+              <Server size={16} />
+              <span>Logs</span>
             </button>
             <button className={`top-nav-btn ${activeTab === 'history' ? 'active' : ''}`} onClick={() => setActiveTab('history')} title="Audit History Logs">
               <Users size={16} />
@@ -1230,6 +1236,10 @@ Fatima Sule,80000,300000,410,Kano,Female,Tecno Spark,false`}
               </div>
             )}
           </div>
+        )}
+
+        {activeTab === 'logs' && (
+          <RenderLogs apiUrl={API_URL} />
         )}
       </main>
     </div>
