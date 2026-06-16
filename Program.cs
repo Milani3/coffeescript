@@ -103,92 +103,19 @@ app.MapPost("/api/predict", async ([FromBody] PredictionRequest request, IHttpCl
     try
     {
         var formData = request.FormData;
+        var biasSettings = request.BiasSettings ?? new BiasSettings(false, false, true);
 
-        int score = 0;
-        var factors = new List<Factor>();
+        var (auditScore, factors) = EvaluateApplicant(
+            formData.Income,
+            formData.LoanAmount,
+            formData.CreditScore,
+            formData.Location,
+            formData.Gender,
+            formData.CriminalRecord,
+            formData.DeviceType,
+            biasSettings
+        );
 
-        // 1. Base Logic (Simulating a neutral model)
-        double income = formData.Income;
-        int creditScore = formData.CreditScore;
-
-        // Income Factor
-        if (income > 500000)
-        {
-            score += 45;
-            factors.Add(new Factor("High Monthly Income", 45));
-        }
-        else if (income > 200000)
-        {
-            score += 30;
-            factors.Add(new Factor("Stable Monthly Income", 30));
-        }
-        else
-        {
-            score += 10;
-            factors.Add(new Factor("Low Income Bracket", 10));
-        }
-
-        // Credit Score Factor
-        if (creditScore > 750)
-        {
-            score += 35;
-            factors.Add(new Factor("Excellent Credit History", 35));
-        }
-        else if (creditScore > 600)
-        {
-            score += 20;
-            factors.Add(new Factor("Fair Credit History", 20));
-        }
-        else
-        {
-            score -= 10;
-            factors.Add(new Factor("Poor Credit History", -10));
-        }
-
-        var monthlyRepaymentRatio = formData.Income > 0 ? formData.LoanAmount / formData.Income : 10;
-        if (monthlyRepaymentRatio <= 1.5)
-        {
-            score += 20;
-            factors.Add(new Factor("Affordable Loan Amount", 20));
-        }
-        else if (monthlyRepaymentRatio <= 3)
-        {
-            score += 5;
-            factors.Add(new Factor("Moderate Loan Amount", 5));
-        }
-        else
-        {
-            score -= 25;
-            factors.Add(new Factor("Loan Amount Too High For Income", -25));
-        }
-
-        // 2. Bias Injection Logic (always active for auditing demo)
-
-        // 2. Bias Injection Logic (always active for auditing demo)
-        
-        // Location Bias
-        var penalizedStates = new List<string> { "Kano", "Kaduna", "Delta", "Rivers" };
-        if (penalizedStates.Contains(formData.Location))
-        {
-            score -= 30;
-            factors.Add(new Factor("Regional Risk Adjustment (Biased)", -30));
-        }
-
-        // Gender Bias
-        if (formData.Gender == "Female")
-        {
-            score -= 20;
-            factors.Add(new Factor("Gender Weighting (Biased)", -20));
-        }
-
-        // Criminal Policy
-        if (formData.CriminalRecord)
-        {
-            score -= 60;
-            factors.Add(new Factor("Criminal Record Penalty", -60));
-        }
-
-        int auditScore = Math.Clamp(score, 0, 100);
         var hfPrediction = await GetHuggingFacePrediction(formData, httpClientFactory);
         int finalScore = hfPrediction.Available
             ? (int)Math.Round((auditScore + hfPrediction.ApprovalScore) / 2.0)
@@ -248,12 +175,13 @@ app.MapGet("/api/metrics", () => Results.Ok(new
 app.MapPost("/api/audit/batch", async ([FromBody] BatchAuditRequest request) =>
 {
     int count = request.Count > 0 ? request.Count : 30;
+    var biasSettings = request.BiasSettings ?? new BiasSettings(false, false, true);
     var applicants = GenerateApplicants(count);
     var results = new List<AuditResult>();
 
     foreach (var applicant in applicants)
     {
-        results.Add(RunAuditSimulation(applicant));
+        results.Add(RunAuditSimulation(applicant, biasSettings));
     }
 
     // Calculate Fairness Metrics
@@ -516,24 +444,125 @@ List<SyntheticApplicant> GenerateApplicants(int count)
     }).ToList();
 }
 
-AuditResult RunAuditSimulation(SyntheticApplicant applicant)
+(int Score, List<Factor> Factors) EvaluateApplicant(
+    double income,
+    double loanAmount,
+    int creditScore,
+    string location,
+    string gender,
+    bool criminalRecord,
+    string deviceType,
+    BiasSettings biasSettings)
 {
     int score = 0;
-    
-    // Core Logic
-    if (applicant.Income > 300000) score += 40; else score += 15;
-    if (applicant.CreditScore > 650) score += 30; else score -= 10;
-    var loanRatio = applicant.Income > 0 ? applicant.LoanAmount / applicant.Income : 10;
-    if (loanRatio <= 1.5) score += 20;
-    else if (loanRatio <= 3) score += 5;
-    else score -= 25;
+    var factors = new List<Factor>();
 
-    // Bias Injection (always active for auditing demo)
-    if (applicant.Gender == "Female") score -= 15;
-    if (applicant.Location == "Kano" || applicant.Location == "Delta") score -= 25;
-    
-    // Proxy Bias: Penalty for low-end devices (often correlates with lower income/class)
-    if (applicant.DeviceType.Contains("Infinix") || applicant.DeviceType.Contains("Tecno")) score -= 10;
+    // Income Factor
+    if (income > 500000)
+    {
+        score += 45;
+        factors.Add(new Factor("High Monthly Income", 45));
+    }
+    else if (income > 200000)
+    {
+        score += 30;
+        factors.Add(new Factor("Stable Monthly Income", 30));
+    }
+    else
+    {
+        score += 10;
+        factors.Add(new Factor("Low Income Bracket", 10));
+    }
+
+    // Credit Score Factor
+    if (creditScore > 750)
+    {
+        score += 35;
+        factors.Add(new Factor("Excellent Credit History", 35));
+    }
+    else if (creditScore > 600)
+    {
+        score += 20;
+        factors.Add(new Factor("Fair Credit History", 20));
+    }
+    else
+    {
+        score -= 10;
+        factors.Add(new Factor("Poor Credit History", -10));
+    }
+
+    var monthlyRepaymentRatio = income > 0 ? loanAmount / income : 10;
+    if (monthlyRepaymentRatio <= 1.5)
+    {
+        score += 20;
+        factors.Add(new Factor("Affordable Loan Amount", 20));
+    }
+    else if (monthlyRepaymentRatio <= 3)
+    {
+        score += 5;
+        factors.Add(new Factor("Moderate Loan Amount", 5));
+    }
+    else
+    {
+        score -= 25;
+        factors.Add(new Factor("Loan Amount Too High For Income", -25));
+    }
+
+    // Bias Injection Logic
+    if (biasSettings != null)
+    {
+        if (biasSettings.PenalizeLocation)
+        {
+            var penalizedStates = new List<string> { "Kano", "Kaduna", "Delta", "Rivers" };
+            if (penalizedStates.Contains(location))
+            {
+                score -= 30;
+                factors.Add(new Factor("Regional Risk Adjustment (Biased)", -30));
+            }
+        }
+
+        if (biasSettings.GenderBias)
+        {
+            if (gender == "Female")
+            {
+                score -= 20;
+                factors.Add(new Factor("Gender Weighting (Biased)", -20));
+            }
+        }
+
+        if (biasSettings.StrictCriminalRecord)
+        {
+            if (criminalRecord)
+            {
+                score -= 60;
+                factors.Add(new Factor("Criminal Record Penalty", -60));
+            }
+        }
+
+        // Proxy Bias: Penalty for low-end devices
+        if (biasSettings.PenalizeLocation && !string.IsNullOrEmpty(deviceType) &&
+            (deviceType.Contains("Infinix", StringComparison.OrdinalIgnoreCase) || deviceType.Contains("Tecno", StringComparison.OrdinalIgnoreCase)))
+        {
+            score -= 10;
+            factors.Add(new Factor("Economic Hardware Adjustment (Biased)", -10));
+        }
+    }
+
+    return (Math.Clamp(score, 0, 100), factors);
+}
+
+AuditResult RunAuditSimulation(SyntheticApplicant applicant, BiasSettings biasSettings)
+{
+    var (score, factors) = EvaluateApplicant(
+        applicant.Income,
+        applicant.LoanAmount,
+        applicant.CreditScore,
+        applicant.Location,
+        applicant.Gender,
+        applicant.CriminalRecord,
+        applicant.DeviceType,
+        biasSettings
+    );
 
     return new AuditResult(applicant, score >= 50, score);
 }
@@ -698,7 +727,13 @@ public record HuggingFacePrediction(
     string Note
 );
 
-public record BatchAuditRequest(int Count);
+public record BiasSettings(
+    bool PenalizeLocation,
+    bool GenderBias,
+    bool StrictCriminalRecord
+);
+
+public record BatchAuditRequest(int Count, BiasSettings BiasSettings);
 public record AuditResult(SyntheticApplicant Applicant, bool Approved, int Score);
 public record SyntheticApplicant(
     string Id,
@@ -722,11 +757,13 @@ public record FormData(
     int CreditScore,
     string Location,
     string Gender,
-    bool CriminalRecord
+    bool CriminalRecord,
+    string DeviceType = null
 );
 
 public record PredictionRequest(
-    FormData FormData
+    FormData FormData,
+    BiasSettings BiasSettings
 );
 
 public record UploadedApplicant(

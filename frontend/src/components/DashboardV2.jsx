@@ -39,7 +39,8 @@ const DashboardV2 = () => {
     creditScore: 650,
     location: 'Lagos',
     gender: 'Male',
-    criminalRecord: false
+    criminalRecord: false,
+    deviceType: 'Redmi Note'
   });
   const [singleResult, setSingleResult] = useState(null);
   const [isSingleAuditing, setIsSingleAuditing] = useState(false);
@@ -171,7 +172,8 @@ const DashboardV2 = () => {
       creditScore: item.applicant.creditScore || 650,
       location: item.applicant.location,
       gender: item.applicant.gender,
-      criminalRecord: item.applicant.criminalRecord || false
+      criminalRecord: item.applicant.criminalRecord || false,
+      deviceType: item.applicant.deviceType || 'Redmi Note'
     });
     setSingleResult(null);
     setActiveTab('single');
@@ -487,6 +489,46 @@ const DashboardV2 = () => {
             <p style={{ fontSize: '0.8rem', marginTop: '0.5rem' }}>Please check if your backend is running at {API_URL}</p>
           </div>
         )}
+
+        <div className="bias-settings-banner glass" style={{ display: 'flex', flexWrap: 'wrap', gap: '1.5rem', padding: '1rem 1.5rem', borderRadius: '12px', marginBottom: '1.5rem', alignItems: 'center', justifyContent: 'space-between', border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-secondary)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <span style={{ fontSize: '0.9rem', fontWeight: 'bold', color: '#fff' }}>Bias Injection Controls:</span>
+            {Object.values(biasSettings).some(v => v) ? (
+              <span style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem', borderRadius: '6px', backgroundColor: 'rgba(239, 68, 68, 0.15)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.3)' }}>Bias Injected</span>
+            ) : (
+              <span style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem', borderRadius: '6px', backgroundColor: 'rgba(16, 185, 129, 0.15)', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.3)' }}>Standard Mode</span>
+            )}
+          </div>
+          <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer', fontSize: '0.85rem', color: '#ccc' }}>
+              <input
+                type="checkbox"
+                checked={biasSettings.penalizeLocation}
+                onChange={(e) => setBiasSettings({ ...biasSettings, penalizeLocation: e.target.checked })}
+                style={{ accentColor: '#7462f3' }}
+              />
+              Regional Bias (Kano/Kaduna/Delta/Rivers)
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer', fontSize: '0.85rem', color: '#ccc' }}>
+              <input
+                type="checkbox"
+                checked={biasSettings.genderBias}
+                onChange={(e) => setBiasSettings({ ...biasSettings, genderBias: e.target.checked })}
+                style={{ accentColor: '#7462f3' }}
+              />
+              Gender Bias (Female Penalty)
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer', fontSize: '0.85rem', color: '#ccc' }}>
+              <input
+                type="checkbox"
+                checked={biasSettings.strictCriminalRecord}
+                onChange={(e) => setBiasSettings({ ...biasSettings, strictCriminalRecord: e.target.checked })}
+                style={{ accentColor: '#7462f3' }}
+              />
+              Strict Criminal Penalty
+            </label>
+          </div>
+        </div>
 
         {/* TAB 1: BATCH AUDIT */}
         {activeTab === 'batch' && (
@@ -853,6 +895,21 @@ const DashboardV2 = () => {
                   >
                     <option>Male</option>
                     <option>Female</option>
+                  </select>
+                </div>
+
+                <div className="input-group">
+                  <label style={{ display: 'block', marginBottom: '0.4rem', color: '#ccc' }}>Device Type</label>
+                  <select
+                    value={formData.deviceType || 'Redmi Note'}
+                    onChange={(e) => setFormData({ ...formData, deviceType: e.target.value })}
+                    style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1px solid #444', backgroundColor: '#111', color: '#fff' }}
+                  >
+                    <option value="iPhone">iPhone (High End)</option>
+                    <option value="Samsung S22">Samsung S22 (High End)</option>
+                    <option value="Redmi Note">Redmi Note (Mid End)</option>
+                    <option value="Infinix Note">Infinix Note (Low End - Proxy)</option>
+                    <option value="Tecno Spark">Tecno Spark (Low End - Proxy)</option>
                   </select>
                 </div>
 
