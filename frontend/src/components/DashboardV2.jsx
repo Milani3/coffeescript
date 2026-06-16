@@ -100,6 +100,10 @@ const DashboardV2 = () => {
   };
 
   const clearHistory = () => {
+    const confirmed = window.confirm(
+      'Do you want to delete the audit history?\n\nThis history is not saved on a database.'
+    );
+    if (!confirmed) return;
     setHistoryList([]);
     localStorage.removeItem('leba_audit_history');
   };
