@@ -446,28 +446,39 @@ const DashboardV2 = () => {
 
   return (
     <div className="dashboard-v2">
+      <aside className="sidebar">
+        <div className={`side-icon ${activeTab === 'batch' ? 'active' : ''}`} onClick={() => setActiveTab('batch')} title="Batch Auditing">
+          <LayoutDashboard size={24} />
+        </div>
+        <div className={`side-icon ${activeTab === 'single' ? 'active' : ''}`} onClick={() => setActiveTab('single')} title="Single Applicant Simulator">
+          <ShieldCheck size={24} />
+        </div>
+        <div className={`side-icon ${activeTab === 'ai-audit' ? 'active' : ''}`} onClick={() => setActiveTab('ai-audit')} title="AI Document Auditor">
+          <Brain size={24} />
+        </div>
+        <div className={`side-icon ${activeTab === 'history' ? 'active' : ''}`} onClick={() => setActiveTab('history')} title="Audit History Logs">
+          <Users size={24} />
+        </div>
+      </aside>
+
       <main className="main-content">
         <header className="header-v2">
           <div>
             <h1>Hello, Auditor! 👋</h1>
             <p style={{ color: '#aaa' }}>Interactive Bias Engine Audit Suite.</p>
           </div>
-          <div className="top-nav">
-            <button className={`top-nav-btn ${activeTab === 'batch' ? 'active' : ''}`} onClick={() => setActiveTab('batch')} title="Batch Auditing">
-              <LayoutDashboard size={16} />
-              <span>Batch</span>
+          <div className="tab-buttons">
+            <button className={`tab-btn ${activeTab === 'batch' ? 'active' : ''}`} onClick={() => setActiveTab('batch')}>
+              Batch Analytics
             </button>
-            <button className={`top-nav-btn ${activeTab === 'single' ? 'active' : ''}`} onClick={() => setActiveTab('single')} title="Single Applicant Simulator">
-              <ShieldCheck size={16} />
-              <span>Simulator</span>
+            <button className={`tab-btn ${activeTab === 'single' ? 'active' : ''}`} onClick={() => setActiveTab('single')}>
+              Single Simulator
             </button>
-            <button className={`top-nav-btn ${activeTab === 'ai-audit' ? 'active' : ''}`} onClick={() => setActiveTab('ai-audit')} title="AI Document Auditor">
-              <Brain size={16} />
-              <span>AI Audit</span>
+            <button className={`tab-btn ${activeTab === 'ai-audit' ? 'active' : ''}`} onClick={() => setActiveTab('ai-audit')}>
+              AI Doc Auditor
             </button>
-            <button className={`top-nav-btn ${activeTab === 'history' ? 'active' : ''}`} onClick={() => setActiveTab('history')} title="Audit History Logs">
-              <Users size={16} />
-              <span>History ({historyList.length})</span>
+            <button className={`tab-btn ${activeTab === 'history' ? 'active' : ''}`} onClick={() => setActiveTab('history')}>
+              History ({historyList.length})
             </button>
           </div>
         </header>
