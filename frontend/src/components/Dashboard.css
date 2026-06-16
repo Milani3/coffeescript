@@ -3,7 +3,6 @@
    ============================================================================ */
 
 :root {
-  /* Colors - Minimal Palette */
   --primary: #1f2937;
   --secondary: #374151;
   --accent: #3b82f6;
@@ -14,32 +13,24 @@
   --text-dark: #111827;
   --text-light: #6b7280;
 
-  /* Spacing */
   --sp-xs: 0.25rem;
   --sp-sm: 0.5rem;
   --sp-md: 1rem;
   --sp-lg: 1.5rem;
   --sp-xl: 2rem;
 
-  /* Typography */
   --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
   --font-size-sm: 0.875rem;
   --font-size-base: 1rem;
   --font-size-lg: 1.125rem;
   --font-size-xl: 1.5rem;
 
-  /* Radius */
   --radius-sm: 0.375rem;
   --radius-md: 0.5rem;
   --radius-lg: 0.75rem;
 
-  /* Transitions */
   --transition: all 0.2s ease;
 }
-
-/* ============================================================================
-   RESET & BASE
-   ============================================================================ */
 
 * {
   margin: 0;
@@ -54,10 +45,6 @@ body {
   color: var(--text-dark);
   line-height: 1.5;
 }
-
-/* ============================================================================
-   DASHBOARD LAYOUT
-   ============================================================================ */
 
 .dashboard {
   display: flex;
@@ -83,6 +70,7 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: var(--sp-lg);
 }
 
 .header h1 {
@@ -97,6 +85,7 @@ body {
   border-radius: 20px;
   font-weight: 600;
   transition: var(--transition);
+  white-space: nowrap;
 }
 
 .status-badge.clean {
@@ -144,10 +133,7 @@ body {
   color: var(--text-dark);
 }
 
-/* ============================================================================
-   FORM STYLING
-   ============================================================================ */
-
+/* Form */
 .form {
   display: flex;
   flex-direction: column;
@@ -232,10 +218,7 @@ body {
   height: 18px;
 }
 
-/* ============================================================================
-   BUTTONS
-   ============================================================================ */
-
+/* Buttons */
 .btn-primary,
 .btn-secondary {
   padding: var(--sp-sm) var(--sp-lg);
@@ -284,10 +267,7 @@ body {
   cursor: not-allowed;
 }
 
-/* ============================================================================
-   RESULTS SECTION
-   ============================================================================ */
-
+/* Results */
 .result-panel {
   gap: var(--sp-lg);
 }
@@ -336,7 +316,6 @@ body {
   border: 1px solid rgba(239, 68, 68, 0.3);
 }
 
-/* Score Section */
 .score-section {
   display: flex;
   flex-direction: column;
@@ -371,7 +350,6 @@ body {
   color: var(--accent);
 }
 
-/* Factors Section */
 .factors-section {
   display: flex;
   flex-direction: column;
@@ -412,7 +390,7 @@ body {
   color: var(--error);
 }
 
-/* Metrics Section */
+/* Metrics */
 .metrics-section {
   display: flex;
   flex-direction: column;
@@ -459,10 +437,7 @@ body {
   color: var(--accent);
 }
 
-/* ============================================================================
-   CONTROLS PANEL (SIDEBAR)
-   ============================================================================ */
-
+/* Controls Panel */
 .controls-panel {
   background: var(--bg-light);
   border-top: 1px solid var(--border);
@@ -582,11 +557,7 @@ body {
   color: var(--success);
 }
 
-/* ============================================================================
-   RESPONSIVE DESIGN
-   ============================================================================ */
-
-/* Tablet (768px) */
+/* Responsive */
 @media (max-width: 768px) {
   .main-content {
     grid-template-columns: 1fr;
@@ -615,7 +586,6 @@ body {
   }
 }
 
-/* Mobile (480px) */
 @media (max-width: 480px) {
   :root {
     --sp-lg: 1rem;
@@ -664,20 +634,4 @@ body {
   .metrics-grid {
     grid-template-columns: repeat(2, 1fr);
   }
-}
-
-/* ============================================================================
-   UTILITY CLASSES
-   ============================================================================ */
-
-.gap-md {
-  gap: var(--sp-md);
-}
-
-.mt-lg {
-  margin-top: var(--sp-lg);
-}
-
-.text-center {
-  text-align: center;
 }

@@ -10,7 +10,7 @@ import {
   Play,
   Zap
 } from 'lucide-react';
-import './Dashboard_Redesigned.css';
+import './Dashboard.css';
 
 const Dashboard = () => {
   const [formData, setFormData] = useState({
@@ -87,7 +87,6 @@ const Dashboard = () => {
 
   return (
     <div className="dashboard">
-      {/* Header */}
       <header className="header">
         <div className="header-content">
           <h1>LEBA Auditor</h1>
@@ -97,9 +96,7 @@ const Dashboard = () => {
         </div>
       </header>
 
-      {/* Main Content */}
       <main className="main-content">
-        {/* Left Panel - Simulator */}
         <section className="panel simulator-panel">
           <h2>Application</h2>
 
@@ -165,7 +162,6 @@ const Dashboard = () => {
           </button>
         </section>
 
-        {/* Right Panel - Results & Metrics */}
         <section className="panel result-panel">
           <AnimatePresence mode="wait">
             {!result ? (
@@ -220,7 +216,6 @@ const Dashboard = () => {
             )}
           </AnimatePresence>
 
-          {/* Metrics Section */}
           {metrics && (
             <div className="metrics-section">
               <h3>Regional Rates</h3>
@@ -243,7 +238,6 @@ const Dashboard = () => {
         </section>
       </main>
 
-      {/* Bottom Controls */}
       <aside className="controls-panel">
         <div className="controls-section">
           <h3>Bias Controls</h3>
