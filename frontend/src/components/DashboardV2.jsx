@@ -56,6 +56,7 @@ const DashboardV2 = () => {
 
   // History States
   const [historyList, setHistoryList] = useState([]);
+  const [expandedHistoryIds, setExpandedHistoryIds] = useState([]);
 
   // AI Doc Auditor States
   const [docFile, setDocFile] = useState(null);
@@ -101,6 +102,12 @@ const DashboardV2 = () => {
   const clearHistory = () => {
     setHistoryList([]);
     localStorage.removeItem('leba_audit_history');
+  };
+
+  const toggleHistoryDetails = (id) => {
+    setExpandedHistoryIds((prev) =>
+      prev.includes(id) ? prev.filter((itemId) => itemId !== id) : [...prev, id]
+    );
   };
 
   const runBatchAudit = async () => {
@@ -1214,6 +1221,39 @@ Fatima Sule,80000,300000,410,Kano,Female,Tecno Spark,false`}
                       </span>
                     </div>
                     <p style={{ fontSize: '0.9rem', color: '#ccc', margin: '0.4rem 0' }}>{item.summary}</p>
+                    {item.details && (
+                      <div style={{ marginTop: '0.65rem' }}>
+                        <button
+                          onClick={() => toggleHistoryDetails(item.id)}
+                          style={{
+                            padding: '0.35rem 0.7rem',
+                            borderRadius: '8px',
+                            backgroundColor: '#222',
+                            color: '#fff',
+                            border: '1px solid #333',
+                            cursor: 'pointer',
+                            fontSize: '0.75rem',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.35rem'
+                          }}
+                        >
+                          {expandedHistoryIds.includes(item.id) ? 'Contract' : 'Expand'}
+                          {expandedHistoryIds.includes(item.id) ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                        </button>
+
+                        {expandedHistoryIds.includes(item.id) && (
+                          <div style={{ marginTop: '0.65rem', padding: '0.75rem', borderRadius: '8px', backgroundColor: '#0d0d0d', border: '1px solid #262626' }}>
+                            <div style={{ fontSize: '0.72rem', color: '#777', marginBottom: '0.45rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                              Details
+                            </div>
+                            <pre style={{ margin: 0, fontSize: '0.75rem', color: '#bbb', whiteSpace: 'pre-wrap', wordBreak: 'break-word', lineHeight: 1.55 }}>
+                              {typeof item.details === 'string' ? item.details : JSON.stringify(item.details, null, 2)}
+                            </pre>
+                          </div>
+                        )}
+                      </div>
+                    )}
                     <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap', marginTop: '0.6rem' }}>
                       <span style={{ fontSize: '0.7rem', color: '#777' }}>Settings:</span>
                       {Object.entries(item.settings).map(([key, val]) => (
