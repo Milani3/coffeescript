@@ -845,7 +845,7 @@ const DashboardV2 = () => {
                     type="text"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1px solid #444', backgroundColor: '#111', color: '#fff' }}
+                    style={{ width: '100%', boxSizing: 'border-box', padding: '0.6rem', borderRadius: '8px', border: '1px solid #444', backgroundColor: '#111', color: '#fff' }}
                   />
                 </div>
 
@@ -855,7 +855,7 @@ const DashboardV2 = () => {
                     type="number"
                     value={formData.income}
                     onChange={(e) => setFormData({ ...formData, income: parseInt(e.target.value) || 0 })}
-                    style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1px solid #444', backgroundColor: '#111', color: '#fff' }}
+                    style={{ width: '100%', boxSizing: 'border-box', padding: '0.6rem', borderRadius: '8px', border: '1px solid #444', backgroundColor: '#111', color: '#fff' }}
                   />
                 </div>
 
@@ -865,7 +865,7 @@ const DashboardV2 = () => {
                     type="number"
                     value={formData.loanAmount}
                     onChange={(e) => setFormData({ ...formData, loanAmount: parseInt(e.target.value) || 0 })}
-                    style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1px solid #444', backgroundColor: '#111', color: '#fff' }}
+                    style={{ width: '100%', boxSizing: 'border-box', padding: '0.6rem', borderRadius: '8px', border: '1px solid #444', backgroundColor: '#111', color: '#fff' }}
                   />
                 </div>
 
@@ -874,7 +874,7 @@ const DashboardV2 = () => {
                   <select
                     value={formData.location}
                     onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                    style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1px solid #444', backgroundColor: '#111', color: '#fff' }}
+                    style={{ width: '100%', boxSizing: 'border-box', padding: '0.6rem', borderRadius: '8px', border: '1px solid #444', backgroundColor: '#111', color: '#fff' }}
                   >
                     <option>Lagos</option>
                     <option>Abuja</option>
@@ -891,7 +891,7 @@ const DashboardV2 = () => {
                   <select
                     value={formData.gender}
                     onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
-                    style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1px solid #444', backgroundColor: '#111', color: '#fff' }}
+                    style={{ width: '100%', boxSizing: 'border-box', padding: '0.6rem', borderRadius: '8px', border: '1px solid #444', backgroundColor: '#111', color: '#fff' }}
                   >
                     <option>Male</option>
                     <option>Female</option>
@@ -903,7 +903,7 @@ const DashboardV2 = () => {
                   <select
                     value={formData.deviceType || 'Redmi Note'}
                     onChange={(e) => setFormData({ ...formData, deviceType: e.target.value })}
-                    style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1px solid #444', backgroundColor: '#111', color: '#fff' }}
+                    style={{ width: '100%', boxSizing: 'border-box', padding: '0.6rem', borderRadius: '8px', border: '1px solid #444', backgroundColor: '#111', color: '#fff' }}
                   >
                     <option value="iPhone">iPhone (High End)</option>
                     <option value="Samsung S22">Samsung S22 (High End)</option>

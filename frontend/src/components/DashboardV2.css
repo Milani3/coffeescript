@@ -9,6 +9,12 @@
   gap: 0.8rem;
 }
 
+.dashboard-v2 *,
+.dashboard-v2 *::before,
+.dashboard-v2 *::after {
+  box-sizing: border-box;
+}
+
 .sidebar,
 .kpi-card,
 .chart-card,
@@ -393,6 +399,8 @@
 
 .input-group input,
 .input-group select {
+  box-sizing: border-box;
+  width: 100%;
   padding: 0.5rem 0.6rem !important;
   border-radius: 7px !important;
   border: 2px solid var(--border-color) !important;
