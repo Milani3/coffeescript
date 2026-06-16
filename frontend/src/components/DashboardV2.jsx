@@ -481,7 +481,7 @@ const DashboardV2 = () => {
 
         <div className="bias-settings-banner glass" style={{ display: 'flex', flexWrap: 'wrap', gap: '1.5rem', padding: '1rem 1.5rem', borderRadius: '12px', marginBottom: '1.5rem', alignItems: 'center', justifyContent: 'space-between', border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-secondary)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span style={{ fontSize: '0.9rem', fontWeight: 'bold', color: '#fff' }}>Bias Injection Controls:</span>
+            <span style={{ fontSize: '0.9rem', fontWeight: 'bold', color: 'var(--text-primary)' }}>Bias Injection Controls:</span>
             {Object.values(biasSettings).some(v => v) ? (
               <span style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem', borderRadius: '6px', backgroundColor: 'rgba(239, 68, 68, 0.15)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.3)' }}>Bias Injected</span>
             ) : (
