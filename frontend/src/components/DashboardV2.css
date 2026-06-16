@@ -2,7 +2,7 @@
   min-height: 100vh;
   background: var(--bg-primary);
   color: var(--text-primary);
-  padding: 1.5rem;
+  padding: var(--layout-gutter);
   font-family: 'Causten', sans-serif;
   display: grid;
   grid-template-columns: 56px minmax(0, 1fr);
@@ -544,7 +544,7 @@
 @media (max-width: 768px) {
   .dashboard-v2 {
     grid-template-columns: 1fr;
-    padding: 0.6rem 0.8rem;
+    padding: var(--layout-gutter);
   }
 
   .sidebar {
@@ -586,10 +586,6 @@
 }
 
 @media (max-width: 560px) {
-  .dashboard-v2 {
-    padding-inline: 0.45rem;
-  }
-
   .kpi-grid {
     grid-template-columns: 1fr;
   }

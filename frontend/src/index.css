@@ -56,6 +56,7 @@
 
   --font-family: 'Causten', system-ui, -apple-system, sans-serif;
   --card-radius: 10px;
+  --layout-gutter: 2rem;
 }
 
 /* Apple iOS Light Mode System */
@@ -199,7 +200,19 @@ button {
 .container {
   max-width: 1400px;
   margin: 0 auto;
-  padding: 0 1.5rem;
+  padding: 0 var(--layout-gutter);
+}
+
+@media (max-width: 768px) {
+  :root {
+    --layout-gutter: 1rem;
+  }
+}
+
+@media (max-width: 560px) {
+  :root {
+    --layout-gutter: 0.75rem;
+  }
 }
 
 /* Stardust Effect */
