@@ -4,6 +4,7 @@ import { Shield, BarChart3, Users, ArrowRight, CheckCircle2, Globe, LayoutDashbo
 import { supabase } from './lib/supabase';
 import Dashboard from './components/Dashboard';
 import DashboardV2 from './components/DashboardV2';
+import RenderLogs from './components/RenderLogs';
 import Auth from './components/Auth';
 import './App.css';
 
@@ -23,6 +24,11 @@ const Navbar = ({ currentView, setView, session, theme, toggleTheme, onSignOut }
         {!session && (
           <button onClick={() => setView('home')} className={currentView === 'home' ? 'active' : ''}>
             Features
+          </button>
+        )}
+        {session && (
+          <button onClick={() => setView('logs')} className={currentView === 'logs' ? 'active' : ''}>
+            Render Logs
           </button>
         )}
         <button 
@@ -274,6 +280,15 @@ function App() {
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
           >
             <DashboardV2 user={session.user} />
+          </motion.div>
+        )}
+
+        {view === 'logs' && session && (
+          <motion.div
+            key="logs"
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+          >
+            <RenderLogs apiUrl={import.meta.env.VITE_API_URL || ''} />
           </motion.div>
         )}
       </AnimatePresence>

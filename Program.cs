@@ -1,11 +1,27 @@
 using Microsoft.AspNetCore.Mvc;
 using Supabase;
+using System.Collections.Concurrent;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
+var runtimeLogs = new ConcurrentQueue<LogEntry>();
+const int MaxRuntimeLogs = 200;
+
+void AddRuntimeLog(string level, string category, string message, object details = null)
+{
+    runtimeLogs.Enqueue(new LogEntry(
+        DateTime.UtcNow.ToString("o"),
+        level,
+        category,
+        message,
+        details
+    ));
+
+    while (runtimeLogs.Count > MaxRuntimeLogs && runtimeLogs.TryDequeue(out _)) { }
+}
 
 // Add services to the container.
 builder.Services.AddEndpointsApiExplorer();
@@ -98,6 +114,64 @@ if (Directory.Exists(distPath))
 }
 app.MapGet("/api", () => Results.Ok(new { message = "LEBA API is active (C# Edition)" }));
 
+app.MapGet("/api/health", () =>
+{
+    var health = new
+    {
+        status = "ok",
+        timestamp = DateTime.UtcNow.ToString("o"),
+        renderUrl = Environment.GetEnvironmentVariable("RENDER_EXTERNAL_URL"),
+        hfConfigured = !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("HF_ACCESS_TOKEN")),
+        hfModel = Environment.GetEnvironmentVariable("HF_MODEL") ?? "facebook/bart-large-mnli",
+        hfAuditModel = Environment.GetEnvironmentVariable("HF_AUDIT_MODEL") ?? "google/flan-t5-base"
+    };
+
+    return Results.Ok(health);
+});
+
+app.MapGet("/api/debug/logs", () =>
+{
+    var logs = runtimeLogs.Reverse().Take(100).ToList();
+    return Results.Ok(new
+    {
+        timestamp = DateTime.UtcNow.ToString("o"),
+        count = logs.Count,
+        logs
+    });
+});
+
+app.MapGet("/api/debug/ai-status", async (IHttpClientFactory httpClientFactory) =>
+{
+    var accessToken = Environment.GetEnvironmentVariable("HF_ACCESS_TOKEN");
+    var model = Environment.GetEnvironmentVariable("HF_MODEL") ?? "facebook/bart-large-mnli";
+    var auditModel = Environment.GetEnvironmentVariable("HF_AUDIT_MODEL") ?? "google/flan-t5-base";
+
+    if (string.IsNullOrWhiteSpace(accessToken))
+    {
+        return Results.Ok(new
+        {
+            configured = false,
+            model,
+            auditModel,
+            simulator = "missing token",
+            audit = "missing token"
+        });
+    }
+
+    var client = httpClientFactory.CreateClient();
+    var simulatorProbe = await ProbeHuggingFaceAsync(client, accessToken, model, "approve loan", "deny loan");
+    var auditProbe = await ProbeHuggingFaceAsync(client, accessToken, auditModel, "fair", "biased");
+
+    return Results.Ok(new
+    {
+        configured = true,
+        model,
+        auditModel,
+        simulator = simulatorProbe,
+        audit = auditProbe
+    });
+});
+
 app.MapPost("/api/predict", async ([FromBody] PredictionRequest request, IHttpClientFactory httpClientFactory) =>
 {
     try
@@ -117,6 +191,13 @@ app.MapPost("/api/predict", async ([FromBody] PredictionRequest request, IHttpCl
         );
 
         var hfPrediction = await GetHuggingFacePrediction(formData, httpClientFactory);
+        AddRuntimeLog("info", "predict", "Simulator request completed", new
+        {
+            hfPrediction.Available,
+            hfPrediction.Model,
+            hfPrediction.Approved,
+            hfPrediction.Confidence
+        });
         int finalScore = hfPrediction.Available
             ? (int)Math.Round((auditScore + hfPrediction.ApprovalScore) / 2.0)
             : auditScore;
@@ -151,6 +232,7 @@ app.MapPost("/api/predict", async ([FromBody] PredictionRequest request, IHttpCl
     catch (Exception ex)
     {
         Console.WriteLine($"Prediction Error: {ex.Message}");
+        AddRuntimeLog("error", "predict", "Simulator request failed", new { error = ex.Message });
         return Results.Problem("Internal Server Error", statusCode: 500);
     }
 });
@@ -352,6 +434,14 @@ app.MapPost("/api/audit/document", async ([FromBody] DocumentAuditRequest reques
     {
         recommendations.Add(aiAuditInsight.Note);
     }
+    AddRuntimeLog("info", "audit", "Document audit completed", new
+    {
+        total,
+        approvalRate = Math.Round(approvalRate * 100, 2),
+        disparateImpact = Math.Round(disparateImpact, 2),
+        aiEnabled = aiAuditInsight.Available,
+        aiModel = aiAuditInsight.Model
+    });
 
     var report = new
     {
@@ -655,7 +745,13 @@ async Task<HuggingFacePrediction> GetHuggingFacePrediction(FormData formData, IH
 
         if (!response.IsSuccessStatusCode)
         {
-            return new HuggingFacePrediction(false, false, 0, 0, model, $"Hugging Face returned {(int)response.StatusCode}.");
+            var failureNote = $"Hugging Face returned {(int)response.StatusCode}: {TrimForLog(body)}";
+            AddRuntimeLog("error", "hf-simulator", "Hugging Face simulator request failed", new
+            {
+                statusCode = (int)response.StatusCode,
+                body
+            });
+            return new HuggingFacePrediction(false, false, 0, 0, model, failureNote);
         }
 
         using var document = JsonDocument.Parse(body);
@@ -688,6 +784,7 @@ async Task<HuggingFacePrediction> GetHuggingFacePrediction(FormData formData, IH
     catch (Exception ex)
     {
         Console.WriteLine($"Hugging Face Prediction Error: {ex.Message}");
+        AddRuntimeLog("error", "hf-simulator", "Hugging Face simulator exception", new { error = ex.Message });
         return new HuggingFacePrediction(false, false, 0, 0, model, "AI model was unavailable, so LEBA used the local audit score.");
     }
 }
@@ -754,7 +851,13 @@ async Task<HuggingFaceAuditInsight> GetHuggingFaceAuditInsight(
 
         if (!response.IsSuccessStatusCode)
         {
-            return new HuggingFaceAuditInsight(false, model, $"Hugging Face returned {(int)response.StatusCode}.", 0);
+            var failureNote = $"Hugging Face returned {(int)response.StatusCode}: {TrimForLog(body)}";
+            AddRuntimeLog("error", "hf-audit", "Hugging Face audit request failed", new
+            {
+                statusCode = (int)response.StatusCode,
+                body
+            });
+            return new HuggingFaceAuditInsight(false, model, failureNote, 0);
         }
 
         using var document = JsonDocument.Parse(body);
@@ -788,8 +891,58 @@ async Task<HuggingFaceAuditInsight> GetHuggingFaceAuditInsight(
     catch (Exception ex)
     {
         Console.WriteLine($"Hugging Face Audit Insight Error: {ex.Message}");
+        AddRuntimeLog("error", "hf-audit", "Hugging Face audit exception", new { error = ex.Message });
         return new HuggingFaceAuditInsight(false, model, "AI audit assistant was unavailable.", 0);
     }
+}
+
+async Task<object> ProbeHuggingFaceAsync(HttpClient client, string accessToken, string model, string labelA, string labelB)
+{
+    try
+    {
+        var payload = new
+        {
+            inputs = "Loan applicant: income 200000 naira, loan 150000 naira, credit score 650, location Lagos.",
+            parameters = new
+            {
+                candidate_labels = new[] { labelA, labelB }
+            },
+            options = new
+            {
+                wait_for_model = true
+            }
+        };
+
+        using var message = new HttpRequestMessage(HttpMethod.Post, $"https://api-inference.huggingface.co/models/{model}");
+        message.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        message.Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
+
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+        using var response = await client.SendAsync(message, timeout.Token);
+        var body = await response.Content.ReadAsStringAsync(timeout.Token);
+
+        return new
+        {
+            ok = response.IsSuccessStatusCode,
+            statusCode = (int)response.StatusCode,
+            body = TrimForLog(body)
+        };
+    }
+    catch (Exception ex)
+    {
+        return new
+        {
+            ok = false,
+            statusCode = 0,
+            body = ex.Message
+        };
+    }
+}
+
+string TrimForLog(string value, int max = 700)
+{
+    if (string.IsNullOrWhiteSpace(value)) return "";
+    return value.Length <= max ? value : value.Substring(0, max) + "...";
 }
 
 string BuildDecisionExplanation(
@@ -852,6 +1005,14 @@ public record HuggingFaceAuditInsight(
     string Model,
     string Note,
     double Confidence
+);
+
+public record LogEntry(
+    string Timestamp,
+    string Level,
+    string Category,
+    string Message,
+    object Details
 );
 
 public record BiasSettings(
