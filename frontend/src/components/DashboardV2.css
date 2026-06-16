@@ -67,12 +67,13 @@
 
 .top-nav {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.4rem;
   background: var(--bg-secondary);
   padding: 0.25rem;
   border-radius: 10px;
   border: 2px solid var(--border-color);
-  overflow-x: auto;
+  overflow: visible;
   max-width: 100%;
 }
 
@@ -90,6 +91,7 @@
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
+  flex: 0 0 auto;
 }
 
 .top-nav-btn:hover {
