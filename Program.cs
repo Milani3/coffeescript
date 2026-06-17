@@ -115,6 +115,12 @@ if (Directory.Exists(distPath))
 }
 app.MapGet("/api", () => Results.Ok(new { message = "LEBA API is active (C# Edition)" }));
 
+app.MapGet("/health", () => Results.Ok(new
+{
+    status = "ok",
+    timestamp = DateTime.UtcNow.ToString("o")
+}));
+
 app.MapGet("/api/health", () =>
 {
     var health = new
