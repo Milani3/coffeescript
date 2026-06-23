@@ -91,7 +91,7 @@ const RenderLogs = ({ apiUrl }) => {
           <div className={`render-badge ${badgeClass(health.hfConfigured)}`}>
             {health.hfConfigured ? 'AI configured' : 'AI missing'}
           </div>
-          <div className="render-meta">HF model: {health.hfModel || 'n/a'}</div>
+          <div className="render-meta">Simulator model: {health.hfModel || 'n/a'}</div>
           <div className="render-meta">Audit model: {health.hfAuditModel || 'n/a'}</div>
         </section>
 

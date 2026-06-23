@@ -9,7 +9,6 @@ using System.Text.Json.Serialization;
 var builder = WebApplication.CreateBuilder(args);
 var runtimeLogs = new ConcurrentQueue<LogEntry>();
 const int MaxRuntimeLogs = 200;
-const string DefaultHfBaseUrls = "https://api-inference.huggingface.co,https://router.huggingface.co/hf-inference";
 
 void AddRuntimeLog(string level, string category, string message, object details = null)
 {
@@ -172,21 +171,6 @@ app.MapGet("/api/debug/ai-status", async (IHttpClientFactory httpClientFactory) 
             configured = true,
             model = "groq:" + model,
             auditModel = "groq:" + auditModel,
-            simulator = simulatorProbe,
-            audit = auditProbe
-        });
-    }
-    else if (!string.IsNullOrWhiteSpace(hfToken))
-    {
-        var model = Environment.GetEnvironmentVariable("HF_MODEL") ?? "facebook/bart-large-mnli";
-        var auditModel = Environment.GetEnvironmentVariable("HF_AUDIT_MODEL") ?? "google/flan-t5-base";
-        var simulatorProbe = await ProbeHuggingFaceAsync(client, hfToken, model, "approve loan", "deny loan");
-        var auditProbe = await ProbeHuggingFaceAsync(client, hfToken, auditModel, "fair", "biased");
-        return Results.Ok(new
-        {
-            configured = true,
-            model,
-            auditModel,
             simulator = simulatorProbe,
             audit = auditProbe
         });
@@ -728,12 +712,12 @@ double CalculateFairnessScore(double disparateImpact)
     return Math.Clamp(parityRatio * 100.0, 0.0, 100.0);
 }
 
-async Task<HuggingFacePrediction> GetGroqPrediction(FormData formData, IHttpClientFactory httpClientFactory)
+async Task<AiPrediction> GetGroqPrediction(FormData formData, IHttpClientFactory httpClientFactory)
 {
     var apiKey = Environment.GetEnvironmentVariable("GROQ_API_KEY");
     if (string.IsNullOrWhiteSpace(apiKey) || apiKey == "YOUR_GROQ_API_KEY_HERE")
     {
-        return new HuggingFacePrediction(false, false, 0, 0, "Groq", "GROQ_API_KEY is not configured.");
+        return new AiPrediction(false, false, 0, 0, "Groq", "GROQ_API_KEY is not configured.");
     }
 
     var model = Environment.GetEnvironmentVariable("GROQ_MODEL") ?? "llama3-8b-8192";
@@ -770,14 +754,18 @@ async Task<HuggingFacePrediction> GetGroqPrediction(FormData formData, IHttpClie
 
         if (!response.IsSuccessStatusCode)
         {
-            return new HuggingFacePrediction(false, false, 0, 0, model, $"Groq error: {response.StatusCode}. {body}");
+            var errMessage = $"Groq error: {response.StatusCode}. {body}";
+            AddRuntimeLog("error", "groq-simulator", errMessage);
+            return new AiPrediction(false, false, 0, 0, model, errMessage);
         }
 
         using var doc = JsonDocument.Parse(body);
         var choices = doc.RootElement.GetProperty("choices");
         if (choices.GetArrayLength() == 0)
         {
-            return new HuggingFacePrediction(false, false, 0, 0, model, "Groq returned no choices.");
+            var errMessage = "Groq returned no choices.";
+            AddRuntimeLog("error", "groq-simulator", errMessage);
+            return new AiPrediction(false, false, 0, 0, model, errMessage);
         }
 
         var contentString = choices[0].GetProperty("message").GetProperty("content").GetString() ?? "{}";
@@ -797,15 +785,17 @@ async Task<HuggingFacePrediction> GetGroqPrediction(FormData formData, IHttpClie
         }
         string explanation = contentRoot.TryGetProperty("explanation", out var expProp) ? expProp.GetString() : "No explanation provided.";
 
-        return new HuggingFacePrediction(true, approved, confidence, approved ? confidence : (100 - confidence), model, explanation);
+        return new AiPrediction(true, approved, confidence, approved ? confidence : (100 - confidence), model, explanation);
     }
     catch (Exception ex)
     {
-        return new HuggingFacePrediction(false, false, 0, 0, model, $"Groq prediction failed: {ex.Message}");
+        var errMessage = $"Groq prediction failed: {ex.Message}";
+        AddRuntimeLog("error", "groq-simulator", errMessage);
+        return new AiPrediction(false, false, 0, 0, model, errMessage);
     }
 }
 
-async Task<HuggingFaceAuditInsight> GetGroqAuditInsight(
+async Task<AiAuditInsight> GetGroqAuditInsight(
     int totalProcessed,
     double approvalRate,
     double disparateImpact,
@@ -816,7 +806,7 @@ async Task<HuggingFaceAuditInsight> GetGroqAuditInsight(
     var apiKey = Environment.GetEnvironmentVariable("GROQ_API_KEY");
     if (string.IsNullOrWhiteSpace(apiKey) || apiKey == "YOUR_GROQ_API_KEY_HERE")
     {
-        return new HuggingFaceAuditInsight(false, "Groq", "GROQ_API_KEY is not configured.", 0);
+        return new AiAuditInsight(false, "Groq", "GROQ_API_KEY is not configured.", 0);
     }
 
     var model = Environment.GetEnvironmentVariable("GROQ_AUDIT_MODEL") ?? "llama3-70b-8192";
@@ -859,22 +849,22 @@ async Task<HuggingFaceAuditInsight> GetGroqAuditInsight(
 
         if (!response.IsSuccessStatusCode)
         {
-            return new HuggingFaceAuditInsight(false, model, $"Groq error: {response.StatusCode}", 0);
+            return new AiAuditInsight(false, model, $"Groq error: {response.StatusCode}", 0);
         }
 
         using var doc = JsonDocument.Parse(body);
         var choices = doc.RootElement.GetProperty("choices");
         if (choices.GetArrayLength() == 0)
         {
-            return new HuggingFaceAuditInsight(false, model, "Groq returned no choices.", 0);
+            return new AiAuditInsight(false, model, "Groq returned no choices.", 0);
         }
 
         var note = choices[0].GetProperty("message").GetProperty("content").GetString() ?? "";
-        return new HuggingFaceAuditInsight(true, model, note.Trim(), 100);
+        return new AiAuditInsight(true, model, note.Trim(), 100);
     }
     catch (Exception ex)
     {
-        return new HuggingFaceAuditInsight(false, model, $"Groq audit failed: {ex.Message}", 0);
+        return new AiAuditInsight(false, model, $"Groq audit failed: {ex.Message}", 0);
     }
 }
 
@@ -936,21 +926,17 @@ async Task<object> ProbeGroqAsync(HttpClient client, string apiKey, string model
     }
 }
 
-async Task<HuggingFacePrediction> GetAiPrediction(FormData formData, IHttpClientFactory httpClientFactory)
+async Task<AiPrediction> GetAiPrediction(FormData formData, IHttpClientFactory httpClientFactory)
 {
     var groqKey = Environment.GetEnvironmentVariable("GROQ_API_KEY");
     if (!string.IsNullOrWhiteSpace(groqKey) && groqKey != "YOUR_GROQ_API_KEY_HERE")
     {
-        var prediction = await GetGroqPrediction(formData, httpClientFactory);
-        if (prediction.Available)
-        {
-            return prediction;
-        }
+        return await GetGroqPrediction(formData, httpClientFactory);
     }
-    return await GetHuggingFacePrediction(formData, httpClientFactory);
+    return new AiPrediction(false, false, 0, 0, "Groq", "GROQ_API_KEY is not configured.");
 }
 
-async Task<HuggingFaceAuditInsight> GetAiAuditInsight(
+async Task<AiAuditInsight> GetAiAuditInsight(
     int totalProcessed,
     double approvalRate,
     double disparateImpact,
@@ -961,345 +947,9 @@ async Task<HuggingFaceAuditInsight> GetAiAuditInsight(
     var groqKey = Environment.GetEnvironmentVariable("GROQ_API_KEY");
     if (!string.IsNullOrWhiteSpace(groqKey) && groqKey != "YOUR_GROQ_API_KEY_HERE")
     {
-        var insight = await GetGroqAuditInsight(totalProcessed, approvalRate, disparateImpact, regionalDisparityJson, recommendations, httpClientFactory);
-        if (insight.Available)
-        {
-            return insight;
-        }
+        return await GetGroqAuditInsight(totalProcessed, approvalRate, disparateImpact, regionalDisparityJson, recommendations, httpClientFactory);
     }
-    return await GetHuggingFaceAuditInsight(totalProcessed, approvalRate, disparateImpact, regionalDisparityJson, recommendations, httpClientFactory);
-}
-
-async Task<HuggingFacePrediction> GetHuggingFacePrediction(FormData formData, IHttpClientFactory httpClientFactory)
-{
-    var accessToken = Environment.GetEnvironmentVariable("HF_ACCESS_TOKEN");
-    if (string.IsNullOrWhiteSpace(accessToken))
-    {
-        return new HuggingFacePrediction(false, false, 0, 0, "Not configured", "HF_ACCESS_TOKEN is not set.");
-    }
-
-    var model = Environment.GetEnvironmentVariable("HF_MODEL");
-    if (string.IsNullOrWhiteSpace(model))
-    {
-        model = "facebook/bart-large-mnli";
-    }
-
-    var applicantProfile =
-        $"Loan applicant in Nigeria. Monthly income: {formData.Income:N0} naira. " +
-        $"Requested loan amount: {formData.LoanAmount:N0} naira. " +
-        $"Credit score: {formData.CreditScore}. Location: {formData.Location}. " +
-        $"Gender: {formData.Gender}. Criminal record: {(formData.CriminalRecord ? "yes" : "no")}. " +
-        "Decide if this applicant should be approved or denied for a loan.";
-
-    var payload = new
-    {
-        inputs = applicantProfile,
-        parameters = new
-        {
-            candidate_labels = new[] { "approve loan", "deny loan" }
-        },
-        options = new
-        {
-            wait_for_model = true
-        }
-    };
-
-    try
-    {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(25));
-        var client = httpClientFactory.CreateClient();
-        var (available, approved, confidence, approvalScore, note) = await TryHuggingFacePredictionAsync(client, accessToken, model, payload, timeout.Token);
-        return new HuggingFacePrediction(available, approved, confidence, approvalScore, model, note);
-    }
-    catch (Exception ex)
-    {
-        var classified = ClassifyHuggingFaceException(ex);
-        Console.WriteLine($"Hugging Face Prediction Error: {classified}");
-        AddRuntimeLog("error", "hf-simulator", "Hugging Face simulator exception", new { error = classified });
-        return new HuggingFacePrediction(false, false, 0, 0, model, classified);
-    }
-}
-
-async Task<HuggingFaceAuditInsight> GetHuggingFaceAuditInsight(
-    int totalProcessed,
-    double approvalRate,
-    double disparateImpact,
-    string regionalDisparityJson,
-    List<string> recommendations,
-    IHttpClientFactory httpClientFactory)
-{
-    var accessToken = Environment.GetEnvironmentVariable("HF_ACCESS_TOKEN");
-    if (string.IsNullOrWhiteSpace(accessToken))
-    {
-        return new HuggingFaceAuditInsight(false, "Not configured", "HF_ACCESS_TOKEN is not set.", 0);
-    }
-
-    var model = Environment.GetEnvironmentVariable("HF_AUDIT_MODEL");
-    if (string.IsNullOrWhiteSpace(model))
-    {
-        model = "google/flan-t5-base";
-    }
-
-    var prompt = new StringBuilder();
-    prompt.AppendLine("You are an AI audit assistant for a Nigerian loan fairness review.");
-    prompt.AppendLine($"Total processed: {totalProcessed}.");
-    prompt.AppendLine($"Overall approval rate: {approvalRate:P2}.");
-    prompt.AppendLine($"Disparate impact ratio: {disparateImpact:F2}.");
-    prompt.AppendLine("Regional disparity summary:");
-    prompt.AppendLine(regionalDisparityJson);
-    prompt.AppendLine("Existing findings:");
-    foreach (var item in recommendations.Take(4))
-    {
-        prompt.AppendLine($"- {item}");
-    }
-    prompt.AppendLine("Return one short, practical audit note focusing on fairness, regional bias, or proxy bias.");
-
-    var payload = new
-    {
-        inputs = prompt.ToString(),
-        parameters = new
-        {
-            max_new_tokens = 120,
-            temperature = 0.2,
-            return_full_text = false
-        },
-        options = new
-        {
-            wait_for_model = true
-        }
-    };
-
-    try
-    {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(25));
-        var client = httpClientFactory.CreateClient();
-        var (available, note, confidence) = await TryHuggingFaceAuditInsightAsync(client, accessToken, model, payload, timeout.Token);
-        return new HuggingFaceAuditInsight(available, model, note, confidence);
-    }
-    catch (Exception ex)
-    {
-        var classified = ClassifyHuggingFaceException(ex);
-        Console.WriteLine($"Hugging Face Audit Insight Error: {classified}");
-        AddRuntimeLog("error", "hf-audit", "Hugging Face audit exception", new { error = classified });
-        return new HuggingFaceAuditInsight(false, model, classified, 0);
-    }
-}
-
-async Task<object> ProbeHuggingFaceAsync(HttpClient client, string accessToken, string model, string labelA, string labelB)
-{
-    try
-    {
-        var payload = new
-        {
-            inputs = "Loan applicant: income 200000 naira, loan 150000 naira, credit score 650, location Lagos.",
-            parameters = new
-            {
-                candidate_labels = new[] { labelA, labelB }
-            },
-            options = new
-            {
-                wait_for_model = true
-            }
-        };
-
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(20));
-        var (available, approved, confidence, approvalScore, note) = await TryHuggingFacePredictionAsync(client, accessToken, model, payload, timeout.Token);
-        return new
-        {
-            ok = available,
-            statusCode = available ? 200 : 0,
-            body = note,
-            approved,
-            confidence,
-            approvalScore
-        };
-    }
-    catch (Exception ex)
-    {
-        return new
-        {
-            ok = false,
-            statusCode = 0,
-            body = ex.Message
-        };
-    }
-}
-
-string TrimForLog(string value, int max = 700)
-{
-    if (string.IsNullOrWhiteSpace(value)) return "";
-    return value.Length <= max ? value : value.Substring(0, max) + "...";
-}
-
-string BuildHuggingFaceModelUrl(string model)
-{
-    var baseUrls = Environment.GetEnvironmentVariable("HF_API_BASE_URLS");
-    if (string.IsNullOrWhiteSpace(baseUrls))
-    {
-        baseUrls = DefaultHfBaseUrls;
-    }
-
-    return $"{baseUrls.Split(',')[0].Trim().TrimEnd('/')}/models/{model}";
-}
-
-string[] GetHuggingFaceBaseUrls()
-{
-    var configured = Environment.GetEnvironmentVariable("HF_API_BASE_URLS");
-    var raw = string.IsNullOrWhiteSpace(configured) ? DefaultHfBaseUrls : configured;
-    return raw.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-}
-
-async Task<(bool Available, bool Approved, double Confidence, double ApprovalScore, string Note)> TryHuggingFacePredictionAsync(
-    HttpClient client,
-    string accessToken,
-    string model,
-    object payload,
-    CancellationToken cancellationToken)
-{
-    foreach (var baseUrl in GetHuggingFaceBaseUrls())
-    {
-        try
-        {
-            using var message = new HttpRequestMessage(HttpMethod.Post, $"{baseUrl.TrimEnd('/')}/models/{model}");
-            message.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
-            message.Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
-
-            using var response = await client.SendAsync(message, cancellationToken);
-            var body = await response.Content.ReadAsStringAsync(cancellationToken);
-
-            if (!response.IsSuccessStatusCode)
-            {
-                AddRuntimeLog("error", "hf-simulator", "Hugging Face simulator request failed", new
-                {
-                    baseUrl,
-                    statusCode = (int)response.StatusCode,
-                    body
-                });
-                continue;
-            }
-
-            using var document = JsonDocument.Parse(body);
-            var root = document.RootElement;
-            if (!root.TryGetProperty("labels", out var labels) || !root.TryGetProperty("scores", out var scores))
-            {
-                continue;
-            }
-
-            double approveScore = 0;
-            double denyScore = 0;
-            for (int i = 0; i < labels.GetArrayLength(); i++)
-            {
-                var label = labels[i].GetString() ?? "";
-                var labelScore = scores[i].GetDouble();
-                if (label.Contains("approve", StringComparison.OrdinalIgnoreCase))
-                {
-                    approveScore = labelScore;
-                }
-                else if (label.Contains("deny", StringComparison.OrdinalIgnoreCase))
-                {
-                    denyScore = labelScore;
-                }
-            }
-
-            var approved = approveScore >= denyScore;
-            var confidence = Math.Max(approveScore, denyScore) * 100;
-            return (true, approved, confidence, approveScore * 100, $"AI model response received from {baseUrl}.");
-        }
-        catch (Exception ex)
-        {
-            var classified = ClassifyHuggingFaceException(ex);
-            AddRuntimeLog("error", "hf-simulator", "Hugging Face simulator exception", new { baseUrl, error = classified });
-            continue;
-        }
-    }
-
-    return (false, false, 0, 0, "All Hugging Face endpoints failed. LEBA used the local audit score.");
-}
-
-async Task<(bool Available, string Note, double Confidence)> TryHuggingFaceAuditInsightAsync(
-    HttpClient client,
-    string accessToken,
-    string model,
-    object payload,
-    CancellationToken cancellationToken)
-{
-    foreach (var baseUrl in GetHuggingFaceBaseUrls())
-    {
-        try
-        {
-            using var message = new HttpRequestMessage(HttpMethod.Post, $"{baseUrl.TrimEnd('/')}/models/{model}");
-            message.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
-            message.Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
-
-            using var response = await client.SendAsync(message, cancellationToken);
-            var body = await response.Content.ReadAsStringAsync(cancellationToken);
-
-            if (!response.IsSuccessStatusCode)
-            {
-                AddRuntimeLog("error", "hf-audit", "Hugging Face audit request failed", new
-                {
-                    baseUrl,
-                    statusCode = (int)response.StatusCode,
-                    body
-                });
-                continue;
-            }
-
-            using var document = JsonDocument.Parse(body);
-            var root = document.RootElement;
-            string note = "";
-
-            if (root.ValueKind == JsonValueKind.Array && root.GetArrayLength() > 0)
-            {
-                var first = root[0];
-                if (first.TryGetProperty("generated_text", out var generatedText))
-                {
-                    note = generatedText.GetString() ?? "";
-                }
-                else if (first.TryGetProperty("summary_text", out var summaryText))
-                {
-                    note = summaryText.GetString() ?? "";
-                }
-            }
-            else if (root.TryGetProperty("generated_text", out var directGeneratedText))
-            {
-                note = directGeneratedText.GetString() ?? "";
-            }
-
-            if (string.IsNullOrWhiteSpace(note))
-            {
-                note = "AI audit note could not be read.";
-            }
-
-            return (true, note.Trim(), 100);
-        }
-        catch (Exception ex)
-        {
-            var classified = ClassifyHuggingFaceException(ex);
-            AddRuntimeLog("error", "hf-audit", "Hugging Face audit exception", new { baseUrl, error = classified });
-            continue;
-        }
-    }
-
-    return (false, "All Hugging Face endpoints failed.", 0);
-}
-
-string ClassifyHuggingFaceException(Exception ex)
-{
-    var message = ex.Message ?? "Unknown Hugging Face error.";
-    var lower = message.ToLowerInvariant();
-
-    if (lower.Contains("name or service not known") || lower.Contains("no such host") || lower.Contains("dns"))
-    {
-        return $"Network/DNS failure reaching Hugging Face: {message}";
-    }
-
-    if (lower.Contains("timeout") || lower.Contains("task canceled") || lower.Contains("operation was canceled"))
-    {
-        return $"Hugging Face request timed out: {message}";
-    }
-
-    return $"Hugging Face request failed: {message}";
+    return new AiAuditInsight(false, "Groq", "GROQ_API_KEY is not configured.", 0);
 }
 
 string BuildDecisionExplanation(
@@ -1308,7 +958,7 @@ string BuildDecisionExplanation(
     int finalScore,
     int auditScore,
     List<Factor> factors,
-    HuggingFacePrediction hfPrediction)
+    AiPrediction aiPrediction)
 {
     var positiveFactors = factors.Where(f => f.Impact > 0).Select(f => f.Name.ToLower()).ToList();
     var negativeFactors = factors.Where(f => f.Impact < 0).Select(f => f.Name.ToLower()).ToList();
@@ -1327,11 +977,11 @@ string BuildDecisionExplanation(
         explanation += $" The decision was reduced by {string.Join(", ", negativeFactors)}.";
     }
 
-    if (hfPrediction.Available)
+    if (aiPrediction.Available)
     {
-        explanation += hfPrediction.Approved
-            ? $" The Hugging Face model also leaned towards approval with {hfPrediction.Confidence:F1}% confidence."
-            : $" The Hugging Face model leaned towards denial with {hfPrediction.Confidence:F1}% confidence.";
+        explanation += aiPrediction.Approved
+            ? $" The AI model also leaned towards approval with {aiPrediction.Confidence:F1}% confidence."
+            : $" The AI model leaned towards denial with {aiPrediction.Confidence:F1}% confidence.";
         explanation += $" LEBA combined the AI result with its audit score of {auditScore}/100.";
     }
     else
@@ -1348,7 +998,7 @@ string BuildDecisionExplanation(
 }
 
 // Models
-public record HuggingFacePrediction(
+public record AiPrediction(
     bool Available,
     bool Approved,
     double Confidence,
@@ -1357,7 +1007,7 @@ public record HuggingFacePrediction(
     string Note
 );
 
-public record HuggingFaceAuditInsight(
+public record AiAuditInsight(
     bool Available,
     string Model,
     string Note,

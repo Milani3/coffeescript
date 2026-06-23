@@ -25,14 +25,9 @@ services:
       - key: VITE_SUPABASE_ANON_KEY
         sync: false
 
-      - key: HF_ACCESS_TOKEN
-        sync: false
-
-      - key: HF_MODEL
-        value: facebook/bart-large-mnli
-
       - key: GROQ_API_KEY
         sync: false
+
 
       - key: GROQ_MODEL
         value: mixtral-8x7b-32768
