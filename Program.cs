@@ -734,11 +734,11 @@ async Task<AiPrediction> GetGroqPrediction(FormData formData, IHttpClientFactory
         model,
         messages = new[]
         {
-            new { role = "system", content = "You are a loan approval classifier. Evaluate the applicant profile and respond strictly in JSON format with: {\"approved\": boolean, \"confidence\": number (0-100), \"explanation\": string}." },
+            new { role = "system", content = "You are a loan approval AI for Nigerian applicants. Respond ONLY with a JSON object in this exact format, no markdown, no extra text: {\"approved\": true, \"confidence\": 85, \"explanation\": \"reason here\"}" },
             new { role = "user", content = applicantProfile }
         },
-        response_format = new { type = "json_object" },
-        temperature = 0.1
+        temperature = 0.1,
+        max_tokens = 200
     };
 
     try
@@ -768,22 +768,36 @@ async Task<AiPrediction> GetGroqPrediction(FormData formData, IHttpClientFactory
             return new AiPrediction(false, false, 0, 0, model, errMessage);
         }
 
-        var contentString = choices[0].GetProperty("message").GetProperty("content").GetString() ?? "{}";
-        using var contentDoc = JsonDocument.Parse(contentString);
+        var contentString = choices[0].GetProperty("message").GetProperty("content").GetString() ?? "";
+        AddRuntimeLog("info", "groq-simulator", "Raw Groq response received", new { contentString });
+
+        // Extract JSON from response (handles markdown code blocks or plain JSON)
+        var jsonMatch = System.Text.RegularExpressions.Regex.Match(contentString, @"\{[\s\S]*\}");
+        if (!jsonMatch.Success)
+        {
+            // Fallback: parse keywords from plain text
+            bool approvedFallback = contentString.Contains("approved", StringComparison.OrdinalIgnoreCase)
+                && !contentString.Contains("not approved", StringComparison.OrdinalIgnoreCase)
+                && !contentString.Contains("denied", StringComparison.OrdinalIgnoreCase);
+            return new AiPrediction(true, approvedFallback, 70, approvedFallback ? 70 : 30, model, contentString.Trim());
+        }
+
+        using var contentDoc = JsonDocument.Parse(jsonMatch.Value);
         var contentRoot = contentDoc.RootElement;
 
         bool approved = false;
         if (contentRoot.TryGetProperty("approved", out var approvedProp))
         {
-            approved = approvedProp.ValueKind == JsonValueKind.True || (approvedProp.ValueKind == JsonValueKind.String && approvedProp.GetString() == "true");
+            approved = approvedProp.ValueKind == JsonValueKind.True
+                || (approvedProp.ValueKind == JsonValueKind.String && approvedProp.GetString()?.ToLower() == "true");
         }
-        double confidence = 100;
+        double confidence = 75;
         if (contentRoot.TryGetProperty("confidence", out var confidenceProp))
         {
             if (confidenceProp.ValueKind == JsonValueKind.Number) confidence = confidenceProp.GetDouble();
             else if (confidenceProp.ValueKind == JsonValueKind.String && double.TryParse(confidenceProp.GetString(), out var confVal)) confidence = confVal;
         }
-        string explanation = contentRoot.TryGetProperty("explanation", out var expProp) ? expProp.GetString() : "No explanation provided.";
+        string explanation = contentRoot.TryGetProperty("explanation", out var expProp) ? (expProp.GetString() ?? "No explanation.") : "No explanation.";
 
         return new AiPrediction(true, approved, confidence, approved ? confidence : (100 - confidence), model, explanation);
     }
