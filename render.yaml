@@ -30,3 +30,12 @@ services:
 
       - key: HF_MODEL
         value: facebook/bart-large-mnli
+
+      - key: GROQ_API_KEY
+        sync: false
+
+      - key: GROQ_MODEL
+        value: mixtral-8x7b-32768
+
+      - key: GROQ_AUDIT_MODEL
+        value: llama3-70b-8192
