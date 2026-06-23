@@ -30,7 +30,7 @@ services:
 
 
       - key: GROQ_MODEL
-        value: mixtral-8x7b-32768
+        value: llama3-8b-8192
 
       - key: GROQ_AUDIT_MODEL
         value: llama3-70b-8192
