@@ -186,6 +186,21 @@ app.MapGet("/api/debug/ai-status", async (IHttpClientFactory httpClientFactory) 
     });
 });
 
+app.MapGet("/api/debug/env-check", () =>
+{
+    var groqKey = Environment.GetEnvironmentVariable("GROQ_API_KEY");
+    var groqModel = Environment.GetEnvironmentVariable("GROQ_MODEL");
+    
+    return Results.Ok(new
+    {
+        groqKeySet = !string.IsNullOrWhiteSpace(groqKey),
+        groqKeyLength = groqKey?.Length ?? 0,
+        groqKeyStarts = groqKey != null ? groqKey.Substring(0, Math.Min(10, groqKey.Length)) + "***" : "not set",
+        groqModel = groqModel,
+        timestamp = DateTime.UtcNow
+    });
+});
+
 app.MapPost("/api/predict", async ([FromBody] PredictionRequest request, IHttpClientFactory httpClientFactory) =>
 {
     try
