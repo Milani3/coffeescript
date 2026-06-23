@@ -123,14 +123,22 @@ app.MapGet("/health", () => Results.Ok(new
 
 app.MapGet("/api/health", () =>
 {
+    var groqKey = Environment.GetEnvironmentVariable("GROQ_API_KEY");
+    bool groqConfigured = !string.IsNullOrWhiteSpace(groqKey) && groqKey != "YOUR_GROQ_API_KEY_HERE";
+    bool hfConfigured = !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("HF_ACCESS_TOKEN"));
+
     var health = new
     {
         status = "ok",
         timestamp = DateTime.UtcNow.ToString("o"),
         renderUrl = Environment.GetEnvironmentVariable("RENDER_EXTERNAL_URL"),
-        hfConfigured = !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("HF_ACCESS_TOKEN")),
-        hfModel = Environment.GetEnvironmentVariable("HF_MODEL") ?? "facebook/bart-large-mnli",
-        hfAuditModel = Environment.GetEnvironmentVariable("HF_AUDIT_MODEL") ?? "google/flan-t5-base"
+        hfConfigured = groqConfigured || hfConfigured,
+        hfModel = groqConfigured 
+            ? ("groq:" + (Environment.GetEnvironmentVariable("GROQ_MODEL") ?? "llama3-8b-8192"))
+            : (Environment.GetEnvironmentVariable("HF_MODEL") ?? "facebook/bart-large-mnli"),
+        hfAuditModel = groqConfigured
+            ? ("groq:" + (Environment.GetEnvironmentVariable("GROQ_AUDIT_MODEL") ?? "llama3-70b-8192"))
+            : (Environment.GetEnvironmentVariable("HF_AUDIT_MODEL") ?? "google/flan-t5-base")
     };
 
     return Results.Ok(health);
@@ -149,33 +157,48 @@ app.MapGet("/api/debug/logs", () =>
 
 app.MapGet("/api/debug/ai-status", async (IHttpClientFactory httpClientFactory) =>
 {
-    var accessToken = Environment.GetEnvironmentVariable("HF_ACCESS_TOKEN");
-    var model = Environment.GetEnvironmentVariable("HF_MODEL") ?? "facebook/bart-large-mnli";
-    var auditModel = Environment.GetEnvironmentVariable("HF_AUDIT_MODEL") ?? "google/flan-t5-base";
+    var groqKey = Environment.GetEnvironmentVariable("GROQ_API_KEY");
+    var hfToken = Environment.GetEnvironmentVariable("HF_ACCESS_TOKEN");
+    var client = httpClientFactory.CreateClient();
 
-    if (string.IsNullOrWhiteSpace(accessToken))
+    if (!string.IsNullOrWhiteSpace(groqKey) && groqKey != "YOUR_GROQ_API_KEY_HERE")
     {
+        var model = Environment.GetEnvironmentVariable("GROQ_MODEL") ?? "llama3-8b-8192";
+        var auditModel = Environment.GetEnvironmentVariable("GROQ_AUDIT_MODEL") ?? "llama3-70b-8192";
+        var simulatorProbe = await ProbeGroqAsync(client, groqKey, model, "approve", "deny");
+        var auditProbe = await ProbeGroqAsync(client, groqKey, auditModel, "fair", "biased");
         return Results.Ok(new
         {
-            configured = false,
+            configured = true,
+            model = "groq:" + model,
+            auditModel = "groq:" + auditModel,
+            simulator = simulatorProbe,
+            audit = auditProbe
+        });
+    }
+    else if (!string.IsNullOrWhiteSpace(hfToken))
+    {
+        var model = Environment.GetEnvironmentVariable("HF_MODEL") ?? "facebook/bart-large-mnli";
+        var auditModel = Environment.GetEnvironmentVariable("HF_AUDIT_MODEL") ?? "google/flan-t5-base";
+        var simulatorProbe = await ProbeHuggingFaceAsync(client, hfToken, model, "approve loan", "deny loan");
+        var auditProbe = await ProbeHuggingFaceAsync(client, hfToken, auditModel, "fair", "biased");
+        return Results.Ok(new
+        {
+            configured = true,
             model,
             auditModel,
-            simulator = "missing token",
-            audit = "missing token"
+            simulator = simulatorProbe,
+            audit = auditProbe
         });
     }
 
-    var client = httpClientFactory.CreateClient();
-    var simulatorProbe = await ProbeHuggingFaceAsync(client, accessToken, model, "approve loan", "deny loan");
-    var auditProbe = await ProbeHuggingFaceAsync(client, accessToken, auditModel, "fair", "biased");
-
     return Results.Ok(new
     {
-        configured = true,
-        model,
-        auditModel,
-        simulator = simulatorProbe,
-        audit = auditProbe
+        configured = false,
+        model = "none",
+        auditModel = "none",
+        simulator = "missing token",
+        audit = "missing token"
     });
 });
 
@@ -197,7 +220,7 @@ app.MapPost("/api/predict", async ([FromBody] PredictionRequest request, IHttpCl
             biasSettings
         );
 
-        var hfPrediction = await GetHuggingFacePrediction(formData, httpClientFactory);
+        var hfPrediction = await GetAiPrediction(formData, httpClientFactory);
         AddRuntimeLog("info", "predict", "Simulator request completed", new
         {
             hfPrediction.Available,
@@ -429,7 +452,7 @@ app.MapPost("/api/audit/document", async ([FromBody] DocumentAuditRequest reques
 
     complianceChecklist.Add(new { criterion = "NDPR Consent Compliance", status = "Pass", detail = "Applicant document records contain active consent markers." });
 
-    var aiAuditInsight = await GetHuggingFaceAuditInsight(
+    var aiAuditInsight = await GetAiAuditInsight(
         total,
         approvalRate,
         disparateImpact,
@@ -703,6 +726,248 @@ double CalculateFairnessScore(double disparateImpact)
 
     var parityRatio = Math.Min(disparateImpact, 1.0 / disparateImpact);
     return Math.Clamp(parityRatio * 100.0, 0.0, 100.0);
+}
+
+async Task<HuggingFacePrediction> GetGroqPrediction(FormData formData, IHttpClientFactory httpClientFactory)
+{
+    var apiKey = Environment.GetEnvironmentVariable("GROQ_API_KEY");
+    if (string.IsNullOrWhiteSpace(apiKey) || apiKey == "YOUR_GROQ_API_KEY_HERE")
+    {
+        return new HuggingFacePrediction(false, false, 0, 0, "Groq", "GROQ_API_KEY is not configured.");
+    }
+
+    var model = Environment.GetEnvironmentVariable("GROQ_MODEL") ?? "llama3-8b-8192";
+
+    var applicantProfile =
+        $"Loan applicant in Nigeria. Monthly income: {formData.Income:N0} naira. " +
+        $"Requested loan amount: {formData.LoanAmount:N0} naira. " +
+        $"Credit score: {formData.CreditScore}. Location: {formData.Location}. " +
+        $"Gender: {formData.Gender}. Criminal record: {(formData.CriminalRecord ? "yes" : "no")}. " +
+        $"Device: {formData.DeviceType ?? "unknown"}.";
+
+    var payload = new
+    {
+        model,
+        messages = new[]
+        {
+            new { role = "system", content = "You are a loan approval classifier. Evaluate the applicant profile and respond strictly in JSON format with: {\"approved\": boolean, \"confidence\": number (0-100), \"explanation\": string}." },
+            new { role = "user", content = applicantProfile }
+        },
+        response_format = new { type = "json_object" },
+        temperature = 0.1
+    };
+
+    try
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(25));
+        var client = httpClientFactory.CreateClient();
+        using var message = new HttpRequestMessage(HttpMethod.Post, "https://api.groq.com/openai/v1/chat/completions");
+        message.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+        message.Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
+
+        using var response = await client.SendAsync(message, timeout.Token);
+        var body = await response.Content.ReadAsStringAsync(timeout.Token);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            return new HuggingFacePrediction(false, false, 0, 0, model, $"Groq error: {response.StatusCode}. {body}");
+        }
+
+        using var doc = JsonDocument.Parse(body);
+        var choices = doc.RootElement.GetProperty("choices");
+        if (choices.GetArrayLength() == 0)
+        {
+            return new HuggingFacePrediction(false, false, 0, 0, model, "Groq returned no choices.");
+        }
+
+        var contentString = choices[0].GetProperty("message").GetProperty("content").GetString() ?? "{}";
+        using var contentDoc = JsonDocument.Parse(contentString);
+        var contentRoot = contentDoc.RootElement;
+
+        bool approved = false;
+        if (contentRoot.TryGetProperty("approved", out var approvedProp))
+        {
+            approved = approvedProp.ValueKind == JsonValueKind.True || (approvedProp.ValueKind == JsonValueKind.String && approvedProp.GetString() == "true");
+        }
+        double confidence = 100;
+        if (contentRoot.TryGetProperty("confidence", out var confidenceProp))
+        {
+            if (confidenceProp.ValueKind == JsonValueKind.Number) confidence = confidenceProp.GetDouble();
+            else if (confidenceProp.ValueKind == JsonValueKind.String && double.TryParse(confidenceProp.GetString(), out var confVal)) confidence = confVal;
+        }
+        string explanation = contentRoot.TryGetProperty("explanation", out var expProp) ? expProp.GetString() : "No explanation provided.";
+
+        return new HuggingFacePrediction(true, approved, confidence, approved ? confidence : (100 - confidence), model, explanation);
+    }
+    catch (Exception ex)
+    {
+        return new HuggingFacePrediction(false, false, 0, 0, model, $"Groq prediction failed: {ex.Message}");
+    }
+}
+
+async Task<HuggingFaceAuditInsight> GetGroqAuditInsight(
+    int totalProcessed,
+    double approvalRate,
+    double disparateImpact,
+    string regionalDisparityJson,
+    List<string> recommendations,
+    IHttpClientFactory httpClientFactory)
+{
+    var apiKey = Environment.GetEnvironmentVariable("GROQ_API_KEY");
+    if (string.IsNullOrWhiteSpace(apiKey) || apiKey == "YOUR_GROQ_API_KEY_HERE")
+    {
+        return new HuggingFaceAuditInsight(false, "Groq", "GROQ_API_KEY is not configured.", 0);
+    }
+
+    var model = Environment.GetEnvironmentVariable("GROQ_AUDIT_MODEL") ?? "llama3-70b-8192";
+
+    var prompt = new StringBuilder();
+    prompt.AppendLine("You are an AI audit assistant for a Nigerian loan fairness review.");
+    prompt.AppendLine($"Total processed: {totalProcessed}.");
+    prompt.AppendLine($"Overall approval rate: {approvalRate:P2}.");
+    prompt.AppendLine($"Disparate impact ratio: {disparateImpact:F2}.");
+    prompt.AppendLine("Regional disparity summary:");
+    prompt.AppendLine(regionalDisparityJson);
+    prompt.AppendLine("Existing findings:");
+    foreach (var item in recommendations.Take(4))
+    {
+        prompt.AppendLine($"- {item}");
+    }
+    prompt.AppendLine("Return one short, practical audit note focusing on fairness, regional bias, or proxy bias.");
+
+    var payload = new
+    {
+        model,
+        messages = new[]
+        {
+            new { role = "system", content = "You are a professional credit compliance auditor. Provide a brief (max 100 words), single-paragraph, highly actionable compliance advice or auditing note based on the provided metrics and findings." },
+            new { role = "user", content = prompt.ToString() }
+        },
+        temperature = 0.2
+    };
+
+    try
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(25));
+        var client = httpClientFactory.CreateClient();
+        using var message = new HttpRequestMessage(HttpMethod.Post, "https://api.groq.com/openai/v1/chat/completions");
+        message.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+        message.Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
+
+        using var response = await client.SendAsync(message, timeout.Token);
+        var body = await response.Content.ReadAsStringAsync(timeout.Token);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            return new HuggingFaceAuditInsight(false, model, $"Groq error: {response.StatusCode}", 0);
+        }
+
+        using var doc = JsonDocument.Parse(body);
+        var choices = doc.RootElement.GetProperty("choices");
+        if (choices.GetArrayLength() == 0)
+        {
+            return new HuggingFaceAuditInsight(false, model, "Groq returned no choices.", 0);
+        }
+
+        var note = choices[0].GetProperty("message").GetProperty("content").GetString() ?? "";
+        return new HuggingFaceAuditInsight(true, model, note.Trim(), 100);
+    }
+    catch (Exception ex)
+    {
+        return new HuggingFaceAuditInsight(false, model, $"Groq audit failed: {ex.Message}", 0);
+    }
+}
+
+async Task<object> ProbeGroqAsync(HttpClient client, string apiKey, string model, string labelA, string labelB)
+{
+    try
+    {
+        var payload = new
+        {
+            model,
+            messages = new[]
+            {
+                new { role = "system", content = $"Answer with one word: either '{labelA}' or '{labelB}'." },
+                new { role = "user", content = "Is a credit score of 800 good?" }
+            },
+            temperature = 0.1
+        };
+
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+        using var message = new HttpRequestMessage(HttpMethod.Post, "https://api.groq.com/openai/v1/chat/completions");
+        message.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+        message.Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
+
+        using var response = await client.SendAsync(message, timeout.Token);
+        var body = await response.Content.ReadAsStringAsync(timeout.Token);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            return new
+            {
+                ok = false,
+                statusCode = (int)response.StatusCode,
+                body = body
+            };
+        }
+
+        using var doc = JsonDocument.Parse(body);
+        var choices = doc.RootElement.GetProperty("choices");
+        var text = choices[0].GetProperty("message").GetProperty("content").GetString() ?? "";
+
+        return new
+        {
+            ok = true,
+            statusCode = 200,
+            body = text.Trim(),
+            approved = text.Contains(labelA, StringComparison.OrdinalIgnoreCase) || !text.Contains(labelB, StringComparison.OrdinalIgnoreCase),
+            confidence = 100.0,
+            approvalScore = 100.0
+        };
+    }
+    catch (Exception ex)
+    {
+        return new
+        {
+            ok = false,
+            statusCode = 0,
+            body = ex.Message
+        };
+    }
+}
+
+async Task<HuggingFacePrediction> GetAiPrediction(FormData formData, IHttpClientFactory httpClientFactory)
+{
+    var groqKey = Environment.GetEnvironmentVariable("GROQ_API_KEY");
+    if (!string.IsNullOrWhiteSpace(groqKey) && groqKey != "YOUR_GROQ_API_KEY_HERE")
+    {
+        var prediction = await GetGroqPrediction(formData, httpClientFactory);
+        if (prediction.Available)
+        {
+            return prediction;
+        }
+    }
+    return await GetHuggingFacePrediction(formData, httpClientFactory);
+}
+
+async Task<HuggingFaceAuditInsight> GetAiAuditInsight(
+    int totalProcessed,
+    double approvalRate,
+    double disparateImpact,
+    string regionalDisparityJson,
+    List<string> recommendations,
+    IHttpClientFactory httpClientFactory)
+{
+    var groqKey = Environment.GetEnvironmentVariable("GROQ_API_KEY");
+    if (!string.IsNullOrWhiteSpace(groqKey) && groqKey != "YOUR_GROQ_API_KEY_HERE")
+    {
+        var insight = await GetGroqAuditInsight(totalProcessed, approvalRate, disparateImpact, regionalDisparityJson, recommendations, httpClientFactory);
+        if (insight.Available)
+        {
+            return insight;
+        }
+    }
+    return await GetHuggingFaceAuditInsight(totalProcessed, approvalRate, disparateImpact, regionalDisparityJson, recommendations, httpClientFactory);
 }
 
 async Task<HuggingFacePrediction> GetHuggingFacePrediction(FormData formData, IHttpClientFactory httpClientFactory)
