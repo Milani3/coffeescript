@@ -133,10 +133,10 @@ app.MapGet("/api/health", () =>
         renderUrl = Environment.GetEnvironmentVariable("RENDER_EXTERNAL_URL"),
         hfConfigured = groqConfigured || hfConfigured,
         hfModel = groqConfigured 
-            ? ("groq:" + (Environment.GetEnvironmentVariable("GROQ_MODEL") ?? "llama3-8b-8192"))
+            ? ("groq:" + (Environment.GetEnvironmentVariable("GROQ_MODEL") ?? "llama-3.1-8b-instant"))
             : (Environment.GetEnvironmentVariable("HF_MODEL") ?? "facebook/bart-large-mnli"),
         hfAuditModel = groqConfigured
-            ? ("groq:" + (Environment.GetEnvironmentVariable("GROQ_AUDIT_MODEL") ?? "llama3-70b-8192"))
+            ? ("groq:" + (Environment.GetEnvironmentVariable("GROQ_AUDIT_MODEL") ?? "llama-3.3-70b-versatile"))
             : (Environment.GetEnvironmentVariable("HF_AUDIT_MODEL") ?? "google/flan-t5-base")
     };
 
@@ -162,8 +162,8 @@ app.MapGet("/api/debug/ai-status", async (IHttpClientFactory httpClientFactory) 
 
     if (!string.IsNullOrWhiteSpace(groqKey) && groqKey != "YOUR_GROQ_API_KEY_HERE")
     {
-        var model = Environment.GetEnvironmentVariable("GROQ_MODEL") ?? "llama3-8b-8192";
-        var auditModel = Environment.GetEnvironmentVariable("GROQ_AUDIT_MODEL") ?? "llama3-70b-8192";
+        var model = Environment.GetEnvironmentVariable("GROQ_MODEL") ?? "llama-3.1-8b-instant";
+        var auditModel = Environment.GetEnvironmentVariable("GROQ_AUDIT_MODEL") ?? "llama-3.3-70b-versatile";
         var simulatorProbe = await ProbeGroqAsync(client, groqKey, model, "approve", "deny");
         var auditProbe = await ProbeGroqAsync(client, groqKey, auditModel, "fair", "biased");
         return Results.Ok(new
@@ -735,7 +735,7 @@ async Task<AiPrediction> GetGroqPrediction(FormData formData, IHttpClientFactory
         return new AiPrediction(false, false, 0, 0, "Groq", "GROQ_API_KEY is not configured.");
     }
 
-    var model = Environment.GetEnvironmentVariable("GROQ_MODEL") ?? "llama3-8b-8192";
+    var model = Environment.GetEnvironmentVariable("GROQ_MODEL") ?? "llama-3.1-8b-instant";
 
     var applicantProfile =
         $"Loan applicant in Nigeria. Monthly income: {formData.Income:N0} naira. " +
@@ -838,7 +838,7 @@ async Task<AiAuditInsight> GetGroqAuditInsight(
         return new AiAuditInsight(false, "Groq", "GROQ_API_KEY is not configured.", 0);
     }
 
-    var model = Environment.GetEnvironmentVariable("GROQ_AUDIT_MODEL") ?? "llama3-70b-8192";
+    var model = Environment.GetEnvironmentVariable("GROQ_AUDIT_MODEL") ?? "llama-3.3-70b-versatile";
 
     var prompt = new StringBuilder();
     prompt.AppendLine("You are an AI audit assistant for a Nigerian loan fairness review.");
