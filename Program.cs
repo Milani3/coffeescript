@@ -35,13 +35,7 @@ builder.Services.AddCors(options =>
         policy.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader());
 
     options.AddPolicy("Production", policy =>
-    {
-        var renderUrl = Environment.GetEnvironmentVariable("RENDER_EXTERNAL_URL");
-        if (!string.IsNullOrEmpty(renderUrl))
-            policy.WithOrigins(renderUrl).AllowAnyMethod().AllowAnyHeader();
-        else
-            policy.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader();
-    });
+        policy.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader());
 });
 
 // Load .env file (supporting parent directory search)

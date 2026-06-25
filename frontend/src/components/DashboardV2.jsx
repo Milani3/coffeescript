@@ -22,9 +22,10 @@ import {
   Server
 } from 'lucide-react';
 import RenderLogs from './RenderLogs';
+import { supabase } from '../lib/supabase';
 import './DashboardV2.css';
 
-const DashboardV2 = () => {
+const DashboardV2 = ({ user }) => {
   // Tabs: 'batch', 'single', 'ai-audit', 'logs', 'history', 'batch-full-log'
   const [activeTab, setActiveTab] = useState('batch');
 
@@ -47,65 +48,100 @@ const DashboardV2 = () => {
   const [singleResult, setSingleResult] = useState(null);
   const [isSingleAuditing, setIsSingleAuditing] = useState(false);
 
-  // General Settings
+  // AI Document Audit States
+  const [docFile, setDocFile] = useState(null);
+  const [docAuditResult, setDocAuditResult] = useState(null);
+  const [isDocAuditing, setIsDocAuditing] = useState(false);
+  const [docError, setDocError] = useState(null);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const fileInputRef = useRef(null);
+
+  // Audit History States
+  const [historyList, setHistoryList] = useState([]);
+  const [expandedHistoryIds, setExpandedHistoryIds] = useState([]);
+
+  // Bias Settings
   const [biasSettings, setBiasSettings] = useState({
     penalizeLocation: false,
     genderBias: false,
     strictCriminalRecord: true
   });
 
-  // History States
-  const [historyList, setHistoryList] = useState([]);
-  const [expandedHistoryIds, setExpandedHistoryIds] = useState([]);
-
-  // AI Doc Auditor States
-  const [docFile, setDocFile] = useState(null);
-  const [isDragOver, setIsDragOver] = useState(false);
-  const [isDocAuditing, setIsDocAuditing] = useState(false);
-  const [docAuditResult, setDocAuditResult] = useState(null);
-  const [docError, setDocError] = useState(null);
-  const fileInputRef = useRef(null);
-
-  // Full Log Search/Filter
+  // Log page search/filter
   const [fullLogSearch, setFullLogSearch] = useState('');
   const [fullLogFilter, setFullLogFilter] = useState('all'); // 'all', 'approved', 'denied'
   const [isCasesExpanded, setIsCasesExpanded] = useState(false);
 
   const API_URL = import.meta.env.VITE_API_URL || '';
 
-  // Load history from localStorage
+  // Load history from Supabase and clear legacy localStorage
   useEffect(() => {
-    const saved = localStorage.getItem('leba_audit_history');
-    if (saved) {
-      try {
-        setHistoryList(JSON.parse(saved));
-      } catch (e) {
-        console.error('Error parsing history', e);
-      }
-    }
-  }, []);
+    localStorage.removeItem('leba_audit_history');
 
-  const saveAuditToHistory = (type, summaryText, detailData) => {
+    const fetchHistory = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('audit_history')
+          .select('*')
+          .order('timestamp', { ascending: false })
+          .limit(50);
+        
+        if (error) throw error;
+        if (data) setHistoryList(data);
+      } catch (err) {
+        console.error('Failed to load audit history from DB:', err);
+      }
+    };
+
+    fetchHistory();
+  }, [user]);
+
+  const saveAuditToHistory = async (type, summaryText, detailData) => {
     const newHistoryItem = {
       id: `AUDIT-${Date.now()}`,
+      user_id: user?.id || null,
       timestamp: new Date().toISOString(),
-      type, // 'Batch' or 'Single'
+      type, // 'Batch Audit' or 'Single Simulation'
       summary: summaryText,
       settings: { ...biasSettings },
       details: detailData
     };
-    const updated = [newHistoryItem, ...historyList].slice(0, 50); // limit to 50 items
-    setHistoryList(updated);
-    localStorage.setItem('leba_audit_history', JSON.stringify(updated));
+
+    // Optimistic UI update
+    setHistoryList(prev => [newHistoryItem, ...prev].slice(0, 50));
+
+    try {
+      const { error } = await supabase
+        .from('audit_history')
+        .insert([newHistoryItem]);
+      if (error) throw error;
+    } catch (err) {
+      console.error('Failed to save audit history to DB:', err);
+    }
   };
 
-  const clearHistory = () => {
+  const clearHistory = async () => {
     const confirmed = window.confirm(
-      'Do you want to delete the audit history?\n\nThis history is not saved on a database.'
+      'Do you want to delete all audit history from the database?'
     );
     if (!confirmed) return;
+
+    // Optimistic UI update
     setHistoryList([]);
-    localStorage.removeItem('leba_audit_history');
+
+    try {
+      const query = supabase
+        .from('audit_history')
+        .delete();
+
+      const { error } = user?.id 
+        ? await query.eq('user_id', user.id)
+        : await query.is('user_id', null);
+
+      if (error) throw error;
+    } catch (err) {
+      console.error('Failed to clear audit history from DB:', err);
+    }
   };
 
   const toggleHistoryDetails = (id) => {
