@@ -22,19 +22,14 @@ const RenderLogs = ({ apiUrl }) => {
   const [lastUpdated, setLastUpdated] = useState(null);
 
   const load = async () => {
-    if (!apiUrl) {
-      setError('API URL is not set.');
-      setLoading(false);
-      return;
-    }
-
     try {
       setLoading(true);
       setError('');
+      const baseUrl = apiUrl || '';
       const [healthRes, logsRes, aiRes] = await Promise.all([
-        fetch(`${apiUrl}/api/health`),
-        fetch(`${apiUrl}/api/debug/logs`),
-        fetch(`${apiUrl}/api/debug/ai-status`)
+        fetch(`${baseUrl}/api/health`),
+        fetch(`${baseUrl}/api/debug/logs`),
+        fetch(`${baseUrl}/api/debug/ai-status`)
       ]);
 
       const [healthJson, logsJson, aiJson] = await Promise.all([
